@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>胡家乐 | 数据驱动型产品经理 (Plush Edition)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Fredoka:wght@500;600&display=swap');
+
+        /* --- 核心毛绒材质定义 --- */
+        :root {
+            --bg-color: #f3eee6; /* 温暖的奶茶色背景 */
+            --noise-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.15'/%3E%3C/svg%3E");
+        }
+
+        body { 
+            font-family: 'Noto Sans SC', 'Fredoka', sans-serif; 
+            background-color: var(--bg-color);
+            color: #4a4a4a;
+            /* 全局柔和化 */
+            text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* 噪点纹理层 - 给所有毛绒元素添加质感 */
+        .texture-overlay {
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        .texture-overlay::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: var(--noise-url);
+            opacity: 0.4; /* 噪点强度，模拟毛孔 */
+            mix-blend-mode: soft-light;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* --- 毛绒卡片通用样式 (Felt/Plush Style) --- */
+        .plush-card {
+            border-radius: 32px; /* 更大的圆角，像抱枕 */
+            border: none;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* 弹性动画 */
+            z-index: 10;
+        }
+
+        /* 模拟毛绒边缘的模糊感和立体感 */
+        .plush-shadow {
+            box-shadow: 
+                inset 0 4px 8px rgba(255,255,255, 0.6), /* 顶部高光，营造充气感 */
+                inset 0 -4px 12px rgba(0,0,0, 0.1), /* 底部内阴影，营造厚度 */
+                0 10px 25px -5px rgba(0,0,0, 0.15), /* 悬浮投影 */
+                0 0 0 4px rgba(255,255,255,0.1); /* 极其微弱的外发光模拟毛边 */
+        }
+
+        .plush-card:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 
+                inset 0 6px 12px rgba(255,255,255, 0.7),
+                inset 0 -6px 16px rgba(0,0,0, 0.12),
+                0 20px 35px -5px rgba(0,0,0, 0.2); /* 抬起时阴影加深 */
+        }
+
+        /* --- 不同颜色的毛绒材质 --- */
+        
+        /* 蓝色绒毛 (Core Tech) */
+        .fur-blue {
+            background: linear-gradient(145deg, #60a5fa, #3b82f6);
+            color: white;
+        }
+        /* 绿色绒毛 (Data) */
+        .fur-green {
+            background: linear-gradient(145deg, #4ade80, #22c55e);
+            color: white;
+        }
+        /* 紫色绒毛 (AI) */
+        .fur-purple {
+            background: linear-gradient(145deg, #a78bfa, #8b5cf6);
+            color: white;
+        }
+        /* 橙色绒毛 (Highlights) */
+        .fur-orange {
+            background: linear-gradient(145deg, #fb923c, #f97316);
+            color: white;
+        }
+        /* 白色/奶油绒毛 (Base Cards) */
+        .fur-white {
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            color: #374151;
+        }
+        
+        /* --- 导航栏毛玻璃+毛边 --- */
+        .nav-plush {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255,255,255,0.5);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }
+
+        /* --- 按钮样式 --- */
+        .btn-plush {
+            border-radius: 999px;
+            font-weight: bold;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            box-shadow: 
+                0 4px 6px rgba(0,0,0,0.1),
+                inset 0 2px 4px rgba(255,255,255,0.5);
+        }
+        .btn-plush:active {
+            transform: scale(0.95);
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.1); /* 按压感 */
+        }
+        .btn-primary {
+            background: linear-gradient(to bottom right, #3b82f6, #2563eb);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        /* --- Tab 切换按钮 --- */
+        .tab-btn {
+            background: #e5e7eb; /* 默认灰色绒毛 */
+            color: #6b7280;
+            border: none;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white;
+            box-shadow: 
+                0 8px 16px -4px rgba(59, 130, 246, 0.4),
+                inset 0 2px 4px rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+
+        /* --- 具体的项目卡片特殊处理 --- */
+        .project-cover {
+            border-radius: 24px;
+            margin: 12px;
+            height: 180px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1); /* 嵌入感 */
+        }
+
+        /* 缝线效果 - 增加手工感 */
+        .stitch-border {
+            border: 2px dashed rgba(255,255,255,0.5);
+        }
+
+        /* 文字排版优化 */
+        h1, h2, h3 {
+            letter-spacing: -0.02em;
+        }
+        .gradient-text {
+            background: linear-gradient(to right, #2563eb, #9333ea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 2px 4px rgba(147, 51, 234, 0.2)); /* 文字也要有立体感 */
+        }
+
+        /* 装饰性背景球球 */
+        .bg-ball {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            z-index: -1;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-blue-200 selection:text-blue-900">
+
+    <!-- 背景装饰球，增加氛围 -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="bg-ball w-96 h-96 bg-blue-200 top-0 left-0 mix-blend-multiply transform -translate-x-1/2 -translate-y-1/2 animate-blob"></div>
+        <div class="bg-ball w-96 h-96 bg-purple-200 top-0 right-0 mix-blend-multiply transform translate-x-1/2 -translate-y-1/2 animate-blob animation-delay-2000"></div>
+        <div class="bg-ball w-96 h-96 bg-pink-200 bottom-0 left-1/2 mix-blend-multiply transform -translate-x-1/2 translate-y-1/2 animate-blob animation-delay-4000"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="nav-plush sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-20 items-center">
+                <div class="flex items-center">
+                    <!-- Logo 做成一个小毛球图标 -->
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white shadow-lg mr-3 texture-overlay plush-shadow">
+                        <i class="fa-solid fa-chart-line text-lg"></i>
+                    </div>
+                    <span class="font-bold text-2xl text-gray-800 tracking-tight" style="font-family: 'Fredoka', sans-serif;">胡家乐<span class="text-blue-500 text-sm ml-1">.Portfolio</span></span>
+                </div>
+                <div class="hidden md:flex space-x-6 items-center">
+                    <a href="#experience" class="text-gray-600 hover:text-blue-600 font-medium transition">核心竞争力</a>
+                    <a href="#projects" class="text-gray-600 hover:text-blue-600 font-medium transition">作品集</a>
+                    <a href="#capability" class="text-gray-600 hover:text-blue-600 font-medium transition">能力图谱</a>
+                    <a href="#contact" class="btn-plush btn-primary px-6 py-2 text-sm shadow-blue-500/30 texture-overlay">联系我</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="relative overflow-hidden pt-10 pb-20">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div class="relative z-10">
+                <!-- Tag -->
+                <div class="inline-flex items-center px-4 py-2 mb-6 text-sm font-bold text-blue-600 bg-white/80 backdrop-blur-sm rounded-full shadow-sm border border-white/60 plush-shadow">
+                    <span class="w-3 h-3 bg-blue-500 rounded-full mr-2 shadow-[0_0_10px_rgba(59,130,246,0.8)]"></span>
+                    求职意向：产品经理 / 产品运营
+                </div>
+                
+                <h1 class="text-5xl lg:text-6xl font-black mb-6 leading-tight text-gray-800 drop-shadow-sm">
+                    数据驱动型<br><span class="gradient-text">产品经理</span>
+                </h1>
+                <p class="text-2xl font-bold text-gray-600 mb-6 tracking-wide">
+                    懂技术 · 懂业务 · 拿结果
+                </p>
+                <!-- 气泡对话框样式 -->
+                <div class="plush-card fur-white p-6 mb-8 shadow-lg plush-shadow texture-overlay transform rotate-1 max-w-lg">
+                    <p class="text-lg text-gray-600 leading-relaxed font-medium">
+                        "不只是写文档，更致力于解决实际问题。我擅长运用数据分析挖掘业务痛点，利用技术手段（AI/RPA）打破瓶颈。"
+                    </p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <a href="#projects" class="btn-plush texture-overlay px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-lg rounded-2xl shadow-xl hover:scale-105 transition transform">
+                        <i class="fa-solid fa-eye mr-2"></i> 浏览作品
+                    </a>
+                    <a href="https://github.com/gzdxhujiale" target="_blank" class="btn-plush px-8 py-4 bg-white text-gray-700 text-lg rounded-2xl shadow-lg hover:bg-gray-50 hover:scale-105 transition transform border border-gray-100">
+                        <i class="fa-brands fa-github mr-2"></i> Github
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Right Side: 浮动的毛绒卡片组 -->
+            <div class="relative hidden lg:block h-[500px]">
+                <!-- 装饰背景圆 -->
+                <div class="absolute inset-0 bg-gradient-to-r from-blue-200 to-indigo-100 opacity-50 rounded-full blur-3xl transform scale-75"></div>
+                
+                <!-- Card 1: 数据驱动 -->
+                <div class="absolute top-0 right-10 w-64 plush-card fur-white p-5 plush-shadow texture-overlay animate-[float_6s_ease-in-out_infinite]">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl shadow-inner">
+                            <i class="fa-solid fa-database"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-lg">数据驱动</h4>
+                            <p class="text-xs text-gray-500 font-bold">SQL / Tableau</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: 结果导向 (主卡片) -->
+                <div class="absolute top-32 left-10 w-72 plush-card fur-purple p-6 plush-shadow texture-overlay z-20 transform -rotate-3 animate-[float_7s_ease-in-out_infinite_1s]">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-full bg-white/20 text-white flex items-center justify-center text-2xl backdrop-blur-md shadow-sm border border-white/30">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-white text-xl">结果导向</h4>
+                            <p class="text-sm text-purple-100 font-medium">ROI 核心 / 量化产出</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+                        <div class="h-2 bg-black/20 rounded-full overflow-hidden">
+                            <div class="h-full bg-white w-[85%] rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-white mt-1 font-bold">
+                            <span>效率提升</span>
+                            <span>85%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: 业务落地 -->
+                <div class="absolute bottom-10 right-20 w-64 plush-card fur-green p-5 plush-shadow texture-overlay z-10 transform rotate-3 animate-[float_5s_ease-in-out_infinite_2s]">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-white/20 text-white flex items-center justify-center text-xl backdrop-blur-sm shadow-inner">
+                            <i class="fa-solid fa-briefcase"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-white text-lg">业务落地</h4>
+                            <p class="text-xs text-green-100 font-bold">闭环解决方案</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. Experience Highlights (Competency) -->
+    <section id="experience" class="py-20 relative">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="mb-16 text-center">
+                <span class="bg-orange-100 text-orange-600 px-4 py-1 rounded-full text-sm font-bold mb-2 inline-block shadow-sm">EXPERIENCE</span>
+                <h2 class="text-4xl font-black text-gray-800">核心竞争力</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                
+                <!-- Card 1 -->
+                <div class="plush-card fur-blue p-8 texture-overlay group hover:-translate-y-2 duration-500 plush-shadow">
+                    <div class="absolute top-4 right-4 opacity-20 transform rotate-12 group-hover:rotate-45 transition duration-700">
+                        <i class="fa-solid fa-robot text-8xl text-white"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <div class="inline-block px-3 py-1 bg-white/20 rounded-full text-white text-xs font-bold mb-4 backdrop-blur-md border border-white/20">RPA + AI</div>
+                        <h3 class="text-2xl font-bold text-white mb-2">重构客服工作流</h3>
+                        <div class="my-6">
+                            <span class="text-6xl font-black text-white drop-shadow-md">70<span class="text-2xl">%</span></span>
+                            <p class="text-blue-100 font-medium mt-1">日均处理量提升</p>
+                        </div>
+                        <div class="bg-white/10 rounded-2xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
+                            <div class="flex items-center text-white text-sm font-medium">
+                                <i class="fa-solid fa-circle-check mr-2 text-green-300"></i> 人力成本降低 23.5%
+                            </div>
+                            <div class="flex items-center text-white text-sm font-medium">
+                                <i class="fa-solid fa-circle-check mr-2 text-green-300"></i> 延迟 24h → 30min
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="plush-card fur-purple p-8 texture-overlay group hover:-translate-y-2 duration-500 plush-shadow">
+                    <div class="absolute top-4 right-4 opacity-20 transform rotate-12 group-hover:rotate-45 transition duration-700">
+                        <i class="fa-solid fa-chart-pie text-8xl text-white"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <div class="inline-block px-3 py-1 bg-white/20 rounded-full text-white text-xs font-bold mb-4 backdrop-blur-md border border-white/20">数据中台</div>
+                        <h3 class="text-2xl font-bold text-white mb-2">驱动业财一体化</h3>
+                        <div class="my-6">
+                            <span class="text-6xl font-black text-white drop-shadow-md">4<span class="text-2xl">h</span></span>
+                            <p class="text-purple-100 font-medium mt-1">报表生成 (原3天)</p>
+                        </div>
+                        <div class="bg-white/10 rounded-2xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
+                            <div class="flex items-center text-white text-sm font-medium">
+                                <i class="fa-solid fa-circle-check mr-2 text-green-300"></i> 效率提升 83.3%
+                            </div>
+                            <div class="flex items-center text-white text-sm font-medium">
+                                <i class="fa-solid fa-circle-check mr-2 text-green-300"></i> 准确率 99%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="plush-card fur-green p-8 texture-overlay group hover:-translate-y-2 duration-500 plush-shadow">
+                    <div class="absolute top-4 right-4 opacity-20 transform rotate-12 group-hover:rotate-45 transition duration-700">
+                        <i class="fa-solid fa-layer-group text-8xl text-white"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <div class="inline-block px-3 py-1 bg-white/20 rounded-full text-white text-xs font-bold mb-4 backdrop-blur-md border border-white/20">全栈技能</div>
+                        <h3 class="text-2xl font-bold text-white mb-2">懂业务·通技术</h3>
+                        
+                        <div class="flex flex-wrap gap-2 mt-6 mb-6">
+                            <span class="px-2 py-1 bg-white/30 rounded-md text-xs font-bold text-white shadow-sm">Python</span>
+                            <span class="px-2 py-1 bg-white/30 rounded-md text-xs font-bold text-white shadow-sm">SQL</span>
+                            <span class="px-2 py-1 bg-white/30 rounded-md text-xs font-bold text-white shadow-sm">Tableau</span>
+                            <span class="px-2 py-1 bg-white/30 rounded-md text-xs font-bold text-white shadow-sm">Axure</span>
+                            <span class="px-2 py-1 bg-white/30 rounded-md text-xs font-bold text-white shadow-sm">Figma</span>
+                            <span class="px-2 py-1 bg-white/30 rounded-md text-xs font-bold text-white shadow-sm">LLM</span>
+                        </div>
+
+                        <div class="bg-white/10 rounded-2xl p-4 space-y-3 backdrop-blur-sm border border-white/10">
+                            <div class="flex items-center text-white text-sm font-medium">
+                                <i class="fa-solid fa-star mr-2 text-yellow-300"></i> 痛点挖掘 & 流程重构
+                            </div>
+                            <div class="flex items-center text-white text-sm font-medium">
+                                <i class="fa-solid fa-star mr-2 text-yellow-300"></i> 系统架构 & 数据建模
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. Projects Section -->
+    <section id="projects" class="py-20">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col items-center mb-12">
+                <h2 class="text-4xl font-black text-gray-800 mb-8 text-shadow-sm">作品集</h2>
+                
+                <!-- Plush Tabs -->
+                <div class="p-2 bg-white rounded-full shadow-inner flex flex-wrap justify-center gap-2 plush-shadow border border-white/50">
+                    <button onclick="filterProjects('all')" class="tab-btn active btn-plush px-6 py-2 text-sm texture-overlay" id="btn-all">全部</button>
+                    <button onclick="filterProjects('ai')" class="tab-btn btn-plush px-6 py-2 text-sm texture-overlay" id="btn-ai">AI 智能体</button>
+                    <button onclick="filterProjects('data')" class="tab-btn btn-plush px-6 py-2 text-sm texture-overlay" id="btn-data">数据中台</button>
+                    <button onclick="filterProjects('other')" class="tab-btn btn-plush px-6 py-2 text-sm texture-overlay" id="btn-other">更多</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="project-grid">
+                
+                <!-- Project Card Template (Plush Style) -->
+                <!-- 1. Data Center -->
+                <div class="plush-card fur-white data texture-overlay plush-shadow group cursor-pointer border-4 border-white" onclick="window.open('https://gzdxhujiale.github.io/portfolio/', '_blank')">
+                    <div class="project-cover bg-gradient-to-br from-emerald-400 to-teal-600 relative flex items-center justify-center stitch-border m-3">
+                        <i class="fa-solid fa-database text-6xl text-white drop-shadow-lg transform group-hover:scale-110 transition duration-500"></i>
+                        <div class="absolute bottom-3 left-3 flex gap-2">
+                            <span class="px-2 py-1 bg-white/30 backdrop-blur-md rounded-lg text-white text-xs font-bold border border-white/20">Data</span>
+                            <span class="px-2 py-1 bg-white/30 backdrop-blur-md rounded-lg text-white text-xs font-bold border border-white/20">ETL</span>
+                        </div>
+                    </div>
+                    <div class="px-6 pb-6 pt-2">
+                        <h3 class="text-xl font-bold text-gray-800 mb-2 group-hover:text-teal-600 transition">财务数据中心</h3>
+                        <p class="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-4 font-medium">
+                            元数据驱动ETL引擎，解决数据孤岛。实现财务报表 T+1 自动化，数据质量校验与治理防线。
+                        </p>
+                        <div class="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <span class="w-2 h-2 rounded-full bg-teal-500 mr-2"></span> SQL / Warehouse
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. AI Agents -->
+                <div class="plush-card fur-white ai texture-overlay plush-shadow group cursor-pointer border-4 border-white" onclick="window.open('https://www.baidu.com', '_blank')">
+                    <div class="project-cover bg-gradient-to-br from-blue-400 to-indigo-600 relative flex items-center justify-center stitch-border m-3">
+                        <i class="fa-solid fa-robot text-6xl text-white drop-shadow-lg transform group-hover:scale-110 transition duration-500"></i>
+                        <div class="absolute bottom-3 left-3 flex gap-2">
+                            <span class="px-2 py-1 bg-white/30 backdrop-blur-md rounded-lg text-white text-xs font-bold border border-white/20">AI Agent</span>
+                        </div>
+                    </div>
+                    <div class="px-6 pb-6 pt-2">
+                        <h3 class="text-xl font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition">AI 智能体集合</h3>
+                        <p class="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-4 font-medium">
+                            基于 Coze/阿里云构建的个性化智能体。包含"文献调研博士"与"自动问答机器人"，极大优化工作流。
+                        </p>
+                        <div class="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <span class="w-2 h-2 rounded-full bg-blue-500 mr-2"></span> Prompt Engineering
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Live Helper -->
+                <div class="plush-card fur-white ai texture-overlay plush-shadow group cursor-pointer border-4 border-white" onclick="window.open('https://www.baidu.com', '_blank')">
+                    <div class="project-cover bg-gradient-to-br from-violet-400 to-purple-600 relative flex items-center justify-center stitch-border m-3">
+                        <i class="fa-solid fa-video text-6xl text-white drop-shadow-lg transform group-hover:scale-110 transition duration-500"></i>
+                         <div class="absolute bottom-3 left-3 flex gap-2">
+                            <span class="px-2 py-1 bg-white/30 backdrop-blur-md rounded-lg text-white text-xs font-bold border border-white/20">Automation</span>
+                        </div>
+                    </div>
+                    <div class="px-6 pb-6 pt-2">
+                        <h3 class="text-xl font-bold text-gray-800 mb-2 group-hover:text-purple-600 transition">智能直播助手</h3>
+                        <p class="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-4 font-medium">
+                            Electron + Python 爬取弹幕，AI 语义识别自动回复并切换 OBS 场景，实现无人值守直播。
+                        </p>
+                        <div class="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <span class="w-2 h-2 rounded-full bg-purple-500 mr-2"></span> Vue3 / Python
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Markdown Editor -->
+                <div class="plush-card fur-white ai texture-overlay plush-shadow group cursor-pointer border-4 border-white" onclick="window.open('https://www.baidu.com', '_blank')">
+                    <div class="project-cover bg-gradient-to-br from-gray-600 to-gray-800 relative flex items-center justify-center stitch-border m-3">
+                        <i class="fa-brands fa-markdown text-6xl text-white drop-shadow-lg transform group-hover:scale-110 transition duration-500"></i>
+                         <div class="absolute bottom-3 left-3 flex gap-2">
+                            <span class="px-2 py-1 bg-white/30 backdrop-blur-md rounded-lg text-white text-xs font-bold border border-white/20">Tool</span>
+                        </div>
+                    </div>
+                    <div class="px-6 pb-6 pt-2">
+                        <h3 class="text-xl font-bold text-gray-800 mb-2 group-hover:text-gray-600 transition">AI Markdown 编辑器</h3>
+                        <p class="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-4 font-medium">
+                            集成 AI 续写的轻量级编辑器。一键生成摘要、格式化代码，内置技术文档 Prompt 模板。
+                        </p>
+                        <div class="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <span class="w-2 h-2 rounded-full bg-gray-500 mr-2"></span> React / Tauri
+                        </div>
+                    </div>
+                </div>
+
+                 <!-- 5. Interview Fish -->
+                 <div class="plush-card fur-white ai texture-overlay plush-shadow group cursor-pointer border-4 border-white" onclick="window.open('https://www.baidu.com', '_blank')">
+                    <div class="project-cover bg-gradient-to-br from-pink-400 to-rose-500 relative flex items-center justify-center stitch-border m-3">
+                        <i class="fa-solid fa-fish text-6xl text-white drop-shadow-lg transform group-hover:scale-110 transition duration-500"></i>
+                         <div class="absolute bottom-3 left-3 flex gap-2">
+                            <span class="px-2 py-1 bg-white/30 backdrop-blur-md rounded-lg text-white text-xs font-bold border border-white/20">Interview</span>
+                        </div>
+                    </div>
+                    <div class="px-6 pb-6 pt-2">
+                        <h3 class="text-xl font-bold text-gray-800 mb-2 group-hover:text-pink-600 transition">面试鱼</h3>
+                        <p class="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-4 font-medium">
+                            基于大模型的模拟面试工具。AI 扮演面试官进行语音追问，并生成多维度的表现评估报告。
+                        </p>
+                        <div class="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <span class="w-2 h-2 rounded-full bg-pink-500 mr-2"></span> LLM / STT
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="plush-card fur-white other hidden col-span-full py-16 text-center border-4 border-dashed border-gray-300 bg-transparent shadow-none">
+                    <div class="w-20 h-20 bg-gray-200 rounded-full mx-auto flex items-center justify-center text-gray-400 text-3xl mb-4 shadow-inner">
+                        <i class="fa-solid fa-lightbulb"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-600">更多创意孵化中...</h3>
+                    <p class="text-gray-400 mt-2">Always learning, always building.</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. Capabilities -->
+    <section id="capability" class="py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-black text-gray-800">能力图谱</h2>
+                <p class="mt-4 text-gray-600 font-medium">既有产品的敏锐度，又有工程的落地能力</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                <div class="plush-card fur-white p-6 texture-overlay plush-shadow hover:bg-teal-50 transition duration-300">
+                    <div class="w-12 h-12 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xl mb-4 shadow-sm">
+                        <i class="fa-solid fa-sitemap"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-lg mb-4">业务还原</h3>
+                    <ul class="space-y-2 text-sm text-gray-600 font-medium">
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-teal-400 rounded-full mr-2"></span>复杂业务流梳理</li>
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-teal-400 rounded-full mr-2"></span>KANO 需求分层</li>
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-teal-400 rounded-full mr-2"></span>业务痛点诊断</li>
+                    </ul>
+                </div>
+
+                <div class="plush-card fur-white p-6 texture-overlay plush-shadow hover:bg-blue-50 transition duration-300">
+                    <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xl mb-4 shadow-sm">
+                        <i class="fa-solid fa-microchip"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-lg mb-4">AI 工程化</h3>
+                    <ul class="space-y-2 text-sm text-gray-600 font-medium">
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-blue-400 rounded-full mr-2"></span>LLM 应用 (RAG)</li>
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-blue-400 rounded-full mr-2"></span>API 接口设计</li>
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-blue-400 rounded-full mr-2"></span>Python 开发</li>
+                    </ul>
+                </div>
+
+                <div class="plush-card fur-white p-6 texture-overlay plush-shadow hover:bg-indigo-50 transition duration-300">
+                    <div class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl mb-4 shadow-sm">
+                        <i class="fa-solid fa-server"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-lg mb-4">系统架构</h3>
+                    <ul class="space-y-2 text-sm text-gray-600 font-medium">
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-indigo-400 rounded-full mr-2"></span>元数据驱动设计</li>
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-indigo-400 rounded-full mr-2"></span>DDD 领域驱动</li>
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-indigo-400 rounded-full mr-2"></span>ER 数据库建模</li>
+                    </ul>
+                </div>
+
+                <div class="plush-card fur-white p-6 texture-overlay plush-shadow hover:bg-purple-50 transition duration-300">
+                    <div class="w-12 h-12 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xl mb-4 shadow-sm">
+                        <i class="fa-solid fa-chart-simple"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-lg mb-4">数据洞察</h3>
+                    <ul class="space-y-2 text-sm text-gray-600 font-medium">
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-purple-400 rounded-full mr-2"></span>Tableau / BI</li>
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-purple-400 rounded-full mr-2"></span>埋点体系设计</li>
+                        <li class="flex items-center"><span class="w-1.5 h-1.5 bg-purple-400 rounded-full mr-2"></span>数据治理闭环</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="contact" class="bg-[#4a4a4a] text-white py-16 relative overflow-hidden">
+        <div class="texture-overlay absolute inset-0 opacity-10"></div>
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-10 md:mb-0 text-center md:text-left">
+                    <div class="flex items-center justify-center md:justify-start mb-4">
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white mr-3 shadow-lg border-2 border-white/20">
+                            <i class="fa-solid fa-user-astronaut"></i>
+                        </div>
+                        <span class="font-bold text-3xl font-[Fredoka]">胡家乐</span>
+                    </div>
+                    <p class="text-gray-400">期待与您共创有温度、有价值的产品。</p>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button onclick="copyToClipboard('2063994160@qq.com', this)" class="plush-card bg-gray-700 hover:bg-gray-600 text-white px-6 py-4 flex items-center transition w-full sm:w-auto border-2 border-gray-600 hover:border-gray-500">
+                        <div class="icon-container w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center mr-3">
+                            <i class="fa-solid fa-envelope text-sm"></i>
+                        </div>
+                        <span class="text-content font-medium">2063994160@qq.com</span>
+                    </button>
+                    
+                    <button onclick="copyToClipboard('13076482897', this)" class="plush-card bg-gray-700 hover:bg-gray-600 text-white px-6 py-4 flex items-center transition w-full sm:w-auto border-2 border-gray-600 hover:border-gray-500">
+                        <div class="icon-container w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center mr-3">
+                            <i class="fa-solid fa-phone text-sm"></i>
+                        </div>
+                        <span class="text-content font-medium">13076482897</span>
+                    </button>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-12 pt-8 text-center text-gray-500 text-sm font-medium">
+                &copy; 2025 胡家乐 Portfolio. Designed with <i class="fa-solid fa-heart text-red-400 mx-1"></i> & Plush UI.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Keyframes for Float Animation -->
+    <style>
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob {
+            animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+            animation-delay: 4s;
+        }
+    </style>
+
+    <script>
+        function filterProjects(category) {
+            // Update Tab State
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.remove('bg-gradient-to-r', 'from-blue-500', 'to-indigo-600', 'text-white');
+                btn.classList.add('bg-[#e5e7eb]', 'text-gray-600');
+            });
+            
+            const activeBtn = document.getElementById(`btn-${category}`);
+            activeBtn.classList.add('active', 'bg-gradient-to-r', 'from-blue-500', 'to-indigo-600', 'text-white');
+            activeBtn.classList.remove('bg-[#e5e7eb]', 'text-gray-600');
+
+            // Filter Logic
+            const cards = document.querySelectorAll('#project-grid > div');
+            cards.forEach(card => {
+                if (category === 'all') {
+                    if (card.classList.contains('other')) {
+                        card.classList.add('hidden');
+                    } else {
+                        card.classList.remove('hidden');
+                    }
+                } else if (category === 'other') {
+                    if (card.classList.contains('other')) {
+                        card.classList.remove('hidden');
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                } else {
+                    if (card.classList.contains(category)) {
+                        card.classList.remove('hidden');
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        // Add Copy Functionality
+        function copyToClipboard(text, btnElement) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                
+                // Visual Feedback
+                const textSpan = btnElement.querySelector('.text-content');
+                const originalText = textSpan.innerText;
+                const iconContainer = btnElement.querySelector('.icon-container');
+                const icon = iconContainer.querySelector('i');
+                const originalIconClass = icon.className;
+
+                // Change state
+                textSpan.innerText = "已复制!";
+                icon.className = "fa-solid fa-check text-sm text-white";
+                iconContainer.classList.remove('bg-gray-600');
+                iconContainer.classList.add('bg-green-500');
+
+                // Revert after 2 seconds
+                setTimeout(() => {
+                    textSpan.innerText = originalText;
+                    icon.className = originalIconClass;
+                    iconContainer.classList.remove('bg-green-500');
+                    iconContainer.classList.add('bg-gray-600');
+                }, 2000);
+
+            } catch (err) {
+                console.error('复制失败', err);
+                alert('复制失败，请手动复制');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+    </script>
+
+</body>
+</html>
