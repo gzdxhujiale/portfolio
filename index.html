@@ -250,12 +250,17 @@
                 <h1 class="reveal text-4xl lg:text-5xl font-bold mb-4 leading-tight text-gray-900" style="animation-delay: 100ms;">
                     数据驱动型<span class="gradient-text">产品经理</span>
                 </h1>
+                
+                <!-- 修改1：副标题文案更新 -->
                 <p class="reveal text-xl lg:text-2xl font-bold text-gray-600 mb-6 tracking-wide" style="animation-delay: 200ms;">
-                    懂技术 · 懂业务 · 拿结果
+                    擅长用数据与AI重构业务流程，交付可量化的商业价值
                 </p>
+                
+                <!-- 修改2：简介段落闭环工作流 -->
                 <p class="reveal text-lg text-gray-600 mb-8 leading-relaxed max-w-lg" style="animation-delay: 300ms;">
-                    不只是写文档，更致力于解决实际问题。我擅长运用数据分析挖掘业务痛点，以结果为导向，利用技术手段（AI/RPA）打破业务瓶颈，实现可量化的降本增效。
+                    我遵循 <strong>‘问题发现→定义量化→方案设计→效果验证’</strong> 的闭环工作方法，擅长运用数据思维与AI技术（如RPA+AI）解决跨部门协作、数据孤岛等复杂业务问题，并确保每一次投入都带来可衡量的效率提升或成本优化。
                 </p>
+                
                 <!-- 交互式光晕按钮 -->
                 <div class="reveal flex space-x-4" style="animation-delay: 400ms;">
                     <a href="#projects" class="interactive-btn group relative px-8 py-3.5 bg-blue-600 text-white font-medium rounded-xl shadow-lg shadow-blue-500/30 overflow-hidden flex items-center gap-2 transition-all hover:scale-105">
@@ -410,7 +415,10 @@
                             <span class="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-medium backdrop-blur-sm">Python</span>
                             <span class="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-medium backdrop-blur-sm">SQL</span>
                             <span class="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-medium backdrop-blur-sm">Excel</span>
-                            <span class="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-medium backdrop-blur-sm">PRA</span>
+                            
+                            <!-- 修改3：修正 PRA 为 RPA -->
+                            <span class="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-medium backdrop-blur-sm">RPA</span>
+                            
                             <span class="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-medium backdrop-blur-sm">Tableau</span>
                             <span class="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-medium backdrop-blur-sm">KANO模型</span>
                         </div>
@@ -459,72 +467,80 @@
                 <h2 class="text-3xl font-bold text-gray-900">作品集</h2>
             </div>
 
-            <!-- Tabs with Border Beam Animation -->
+            <!-- 修改4：作品集 Tab 分类优化 -->
             <div class="flex flex-wrap justify-center gap-3 mb-16 reveal">
                 <button onclick="filterProjects('all')" class="tab-btn active px-7 py-2.5 rounded-full border border-gray-200 text-gray-600 font-medium bg-white hover:bg-gray-50 hover:border-gray-300 text-sm tracking-wide shadow-sm" id="btn-all">全部项目</button>
-                <button onclick="filterProjects('ai')" class="tab-btn px-7 py-2.5 rounded-full border border-gray-200 text-gray-600 font-medium bg-white hover:bg-gray-50 hover:border-gray-300 text-sm tracking-wide shadow-sm" id="btn-ai">AI</button>
-                <button onclick="filterProjects('data')" class="tab-btn px-7 py-2.5 rounded-full border border-gray-200 text-gray-600 font-medium bg-white hover:bg-gray-50 hover:border-gray-300 text-sm tracking-wide shadow-sm" id="btn-data">数据中台</button>
-                <button onclick="filterProjects('other')" class="tab-btn px-7 py-2.5 rounded-full border border-gray-200 text-gray-600 font-medium bg-white hover:bg-gray-50 hover:border-gray-300 text-sm tracking-wide shadow-sm" id="btn-other">其它</button>
+                <button onclick="filterProjects('b-side')" class="tab-btn px-7 py-2.5 rounded-full border border-gray-200 text-gray-600 font-medium bg-white hover:bg-gray-50 hover:border-gray-300 text-sm tracking-wide shadow-sm" id="btn-b-side">B端产品</button>
+                <button onclick="filterProjects('data-ai')" class="tab-btn px-7 py-2.5 rounded-full border border-gray-200 text-gray-600 font-medium bg-white hover:bg-gray-50 hover:border-gray-300 text-sm tracking-wide shadow-sm" id="btn-data-ai">数据与AI</button>
+                <button onclick="filterProjects('tools')" class="tab-btn px-7 py-2.5 rounded-full border border-gray-200 text-gray-600 font-medium bg-white hover:bg-gray-50 hover:border-gray-300 text-sm tracking-wide shadow-sm" id="btn-tools">效率工具</button>
             </div>
 
             <!-- Project Grid: Unified Project Colors -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 stagger-container" id="project-grid">
                 
-                <!-- 1. Data Project -->
-                <div class="project-card data group cursor-pointer" onclick="window.location.href='/project-finance/'">
+                <!-- 1. Data Project: Finance Center (Updated Content & Classes) -->
+                <!-- Classes added: b-side, data-ai -->
+                <div class="project-card b-side data-ai group cursor-pointer" onclick="window.location.href='/project-finance/'">
                     <div class="h-52 bg-gradient-to-br from-blue-600 to-blue-700 relative overflow-hidden">
                         <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                         <div class="absolute inset-0 flex items-center justify-center text-white transform group-hover:scale-110 transition duration-700">
                            <i class="fa-solid fa-chart-pie text-5xl drop-shadow-lg"></i>
                         </div>
                         <div class="absolute bottom-4 left-4 flex gap-2 z-20">
-                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-lg shadow-sm">数据中台</span>
-                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-indigo-700 text-xs font-bold rounded-lg shadow-sm">自动化</span>
+                            <!-- Updated Tags -->
+                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-lg shadow-sm">B端产品</span>
+                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-indigo-700 text-xs font-bold rounded-lg shadow-sm">数据中台</span>
                         </div>
                     </div>
                     <div class="p-7">
-                        <h3 class="text-xl font-bold mb-3 text-gray-900 group-hover:text-blue-700 transition-colors">财务数据中心</h3>
+                        <!-- Updated Title & Description -->
+                        <h3 class="text-xl font-bold mb-3 text-gray-900 group-hover:text-blue-700 transition-colors">财务数据中台 | 业财一体化与数据治理</h3>
                         <p class="text-gray-600 text-sm mb-5 leading-relaxed line-clamp-3">
-                            元数据驱动ETL引擎，三重质量校验与治理防线。解决数据孤岛、多源异构数据核算等难题，实现财务报表T+1自动化。
+                            从“不可用、不好用、不被用”痛点出发，主导设计基于星型模型的数据仓库、元规则驱动ETL管道及BI看板，实现报表T+1生成，效率提升83.3%。
                         </p>
+                        <!-- Updated Footer Info -->
                         <div class="pt-5 border-t border-gray-100 flex items-center text-gray-500 text-xs font-medium">
-                            <i class="fa-solid fa-database mr-2 text-blue-500"></i> SQL, ETL, Data Warehouse
+                            <i class="fa-solid fa-database mr-2 text-blue-500"></i> ETL, BI看板, Data Warehouse
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. AI Project -->
-                <div class="project-card ai group cursor-pointer" onclick="window.open('https://www.baidu.com', '_blank')">
+                <!-- 2. AI Project: AI Agent (Updated Content & Classes) -->
+                <!-- Classes added: tools, data-ai -->
+                <div class="project-card tools data-ai group cursor-pointer" onclick="showComingSoon()">
                     <div class="h-52 bg-gradient-to-br from-indigo-500 to-indigo-600 relative overflow-hidden">
                         <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                         <div class="absolute inset-0 flex items-center justify-center text-white transform group-hover:scale-110 transition duration-700">
                            <i class="fa-solid fa-robot text-5xl drop-shadow-lg"></i>
                         </div>
                         <div class="absolute bottom-4 left-4 flex gap-2 z-20">
-                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-indigo-700 text-xs font-bold rounded-lg shadow-sm">AI</span>
-                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-lg shadow-sm">智能体</span>
+                            <!-- Updated Tags -->
+                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-indigo-700 text-xs font-bold rounded-lg shadow-sm">效率工具</span>
+                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-lg shadow-sm">AI应用</span>
                         </div>
                     </div>
                     <div class="p-7">
-                        <h3 class="text-xl font-bold mb-3 text-gray-900 group-hover:text-indigo-700 transition-colors">AI智能体</h3>
+                        <!-- Updated Title & Description -->
+                        <h3 class="text-xl font-bold mb-3 text-gray-900 group-hover:text-indigo-700 transition-colors">AI智能体工作台 | 提示词工程与自动化</h3>
                         <p class="text-gray-600 text-sm mb-5 leading-relaxed line-clamp-3">
-                            在Gemini/阿里云百练/coze构建个性化智能体。包括“问答机器人”和“文献调研博士”，优化工作流。
+                            基于Gemini/Coze等平台，构建“问答机器人”、“文献调研助手”等智能体，探索AI在信息处理与工作流优化中的落地场景。
                         </p>
+                        <!-- Updated Footer Info -->
                         <div class="pt-5 border-t border-gray-100 flex items-center text-gray-500 text-xs font-medium">
                             <i class="fa-solid fa-microchip mr-2 text-indigo-500"></i> Prompt Engineering
                         </div>
                     </div>
                 </div>
 
-                <!-- 3. AI Project (Live Stream) -->
-                <div class="project-card ai group cursor-pointer" onclick="window.open('https://www.baidu.com', '_blank')">
+                <!-- 3. Live Stream (Categorized as: tools, data-ai) -->
+                <div class="project-card tools data-ai group cursor-pointer" onclick="showComingSoon()">
                     <div class="h-52 bg-gradient-to-br from-blue-500 to-indigo-500 relative overflow-hidden">
                         <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                         <div class="absolute inset-0 flex items-center justify-center text-white transform group-hover:scale-110 transition duration-700">
                             <i class="fa-solid fa-video text-5xl drop-shadow-lg"></i>
                         </div>
                          <div class="absolute bottom-4 left-4 flex gap-2 z-20">
-                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-lg shadow-sm">AI</span>
+                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-lg shadow-sm">效率工具</span>
                             <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-indigo-700 text-xs font-bold rounded-lg shadow-sm">自动化</span>
                         </div>
                     </div>
@@ -539,15 +555,15 @@
                     </div>
                 </div>
 
-                <!-- 4. Markdown -->
-                <div class="project-card ai group cursor-pointer" onclick="window.open('https://www.baidu.com', '_blank')">
+                <!-- 4. Markdown (Categorized as: tools, data-ai) -->
+                <div class="project-card tools data-ai group cursor-pointer" onclick="showComingSoon()">
                     <div class="h-52 bg-slate-700 relative overflow-hidden">
                         <div class="absolute inset-0 flex items-center justify-center text-white transform group-hover:scale-110 transition duration-700">
                            <i class="fa-solid fa-file-markdown text-5xl drop-shadow-lg"></i>
                         </div>
                         <div class="absolute bottom-4 left-4 flex gap-2 z-20">
-                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-slate-700 text-xs font-bold rounded-lg shadow-sm">AI</span>
-                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-lg shadow-sm">工具类</span>
+                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-slate-700 text-xs font-bold rounded-lg shadow-sm">效率工具</span>
+                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-lg shadow-sm">AI辅助</span>
                         </div>
                     </div>
                     <div class="p-7">
@@ -561,14 +577,14 @@
                     </div>
                 </div>
 
-                <!-- 5. Interview Fish -->
-                 <div class="project-card ai group cursor-pointer" onclick="window.open('https://www.baidu.com', '_blank')">
+                <!-- 5. Interview Fish (Categorized as: data-ai) -->
+                 <div class="project-card data-ai group cursor-pointer" onclick="showComingSoon()">
                     <div class="h-52 bg-gradient-to-br from-indigo-600 to-violet-600 relative overflow-hidden">
                         <div class="absolute inset-0 flex items-center justify-center text-white transform group-hover:scale-110 transition duration-700">
                            <i class="fa-solid fa-fish text-5xl drop-shadow-lg"></i>
                         </div>
                         <div class="absolute bottom-4 left-4 flex gap-2 z-20">
-                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-indigo-700 text-xs font-bold rounded-lg shadow-sm">AI</span>
+                            <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-indigo-700 text-xs font-bold rounded-lg shadow-sm">AI应用</span>
                             <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-violet-700 text-xs font-bold rounded-lg shadow-sm">模拟面试</span>
                         </div>
                     </div>
@@ -694,6 +710,16 @@
         </div>
     </footer>
 
+    <!-- Custom Toast Notification -->
+    <div id="toast-notification" class="fixed top-24 left-1/2 transform -translate-x-1/2 z-[100] pointer-events-none transition-all duration-300 ease-out translate-y-[-20px] opacity-0">
+        <div class="bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-3 border border-slate-700 backdrop-blur-md bg-opacity-95">
+            <div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                 <i class="fa-solid fa-lock text-blue-400 text-xs"></i>
+            </div>
+            <span class="font-medium text-sm tracking-wide">暂未公布，敬请期待</span>
+        </div>
+    </div>
+
     <script>
         // 初始化逻辑
         document.addEventListener('DOMContentLoaded', () => {
@@ -738,6 +764,21 @@
             });
         });
 
+        // 6. 弹窗提示逻辑 (Toast)
+        let toastTimeout;
+        function showComingSoon() {
+            const toast = document.getElementById('toast-notification');
+            
+            // 重置状态
+            clearTimeout(toastTimeout);
+            toast.classList.remove('translate-y-[-20px]', 'opacity-0');
+            
+            // 2秒后自动隐藏
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('translate-y-[-20px]', 'opacity-0');
+            }, 2000);
+        }
+
         // 4. 作品筛选逻辑
         function filterProjects(category) {
             // 更新 Tab 状态
@@ -760,7 +801,8 @@
                         card.classList.add('active');
                     }
                 } else if (category === 'other') {
-                    if (card.classList.contains('other')) {
+                    // Placeholder for 'other' if needed, though hidden in UI now
+                     if (card.classList.contains('other')) {
                         card.classList.remove('hidden');
                         card.classList.remove('active');
                         card.classList.add('reveal');
