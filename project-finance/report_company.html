@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="data_report_company.js"></script>
     <script>tailwind.config = { theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } }, colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } } } } }</script>
     <style>
         ::-webkit-scrollbar { width: 6px; height: 6px; } 
@@ -25,128 +26,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- 1. 核心数据定义 ---
-        // 阿米巴部门
-        const AMEBA_DEPARTMENTS = ['运营部-淘宝', '运营部-抖音', '运营部-快手', '商品部', '开发部', '产研部', '客服部', '仓储部', '人事部', '财务部'];
-
-        // 完整的三大报表数据
-        const FULL_COMPANY_REPORTS = {
-            balance: [
-                { id: 'asset', name: '一、资产总计', value: 58420000, level: 1, children: [
-                    { id: 'asset-current', name: '流动资产', value: 32500000, level: 2, children: [
-                        { id: 'c1', name: '货币资金', value: 15200000, level: 3 },
-                        { id: 'c2', name: '交易性金融资产', value: 2000000, level: 3 },
-                        { id: 'c3', name: '应收账款', value: 8300000, level: 3 },
-                        { id: 'c4', name: '预付款项', value: 1800000, level: 3 },
-                        { id: 'c5', name: '其他应收款', value: 1200000, level: 3 },
-                        { id: 'c6', name: '存货', value: 4000000, level: 3 }
-                    ]},
-                    { id: 'asset-fixed', name: '非流动资产', value: 25920000, level: 2, children: [
-                        { id: 'f1', name: '固定资产', value: 12500000, level: 3 },
-                        { id: 'f2', name: '在建工程', value: 4500000, level: 3 },
-                        { id: 'f3', name: '无形资产', value: 7800000, level: 3 },
-                        { id: 'f4', name: '长期待摊费用', value: 1120000, level: 3 }
-                    ]}
-                ]},
-                { id: 'liability', name: '二、负债合计', value: 21300000, level: 1, children: [
-                    { id: 'liab-current', name: '流动负债', value: 15100000, level: 2, children: [
-                        { id: 'l1', name: '短期借款', value: 5200000, level: 3 },
-                        { id: 'l2', name: '应付票据', value: 1800000, level: 3 },
-                        { id: 'l3', name: '应付账款', value: 6200000, level: 3 },
-                        { id: 'l4', name: '应付职工薪酬', value: 1400000, level: 3 },
-                        { id: 'l5', name: '应交税费', value: 500000, level: 3 }
-                    ]},
-                    { id: 'liab-long', name: '非流动负债', value: 6200000, level: 2, children: [
-                        { id: 'll1', name: '长期借款', value: 6200000, level: 3 }
-                    ]}
-                ]},
-                { id: 'equity', name: '三、所有者权益', value: 37120000, level: 1, children: [
-                    { id: 'e1', name: '实收资本', value: 20000000, level: 2, children: [] },
-                    { id: 'e2', name: '资本公积', value: 5000000, level: 2, children: [] },
-                    { id: 'e3', name: '盈余公积', value: 2120000, level: 2, children: [] },
-                    { id: 'e4', name: '未分配利润', value: 10000000, level: 2, children: [] }
-                ]}
-            ],
-            profit: [
-                { id: 'income', name: '一、营业收入', value: 85600000, level: 1, children: [
-                    { id: 'inc-main', name: '主营业务收入', value: 80400000, level: 2, children: [{id:'im1', name:'线上销售收入', value:60200000, level:3}, {id:'im2', name:'分销收入', value:20200000, level:3}] },
-                    { id: 'inc-other', name: '其他业务收入', value: 5200000, level: 2, children: [] }
-                ]},
-                { id: 'cost', name: '二、营业成本', value: 45800000, level: 1, children: [
-                    { id: 'cost-main', name: '主营业务成本', value: 42500000, level: 2, children: [] },
-                    { id: 'cost-other', name: '其他业务成本', value: 3300000, level: 2, children: [] }
-                ]},
-                { id: 'tax', name: '三、税金及附加', value: 550000, level: 1, children: [] },
-                { id: 'expense', name: '四、期间费用', value: 25600000, level: 1, children: [
-                    { id: 'ex-sale', name: '销售费用', value: 15500000, level: 2, children: [{id:'es1', name:'广告推广费', value:8200000, level:3}, {id:'es2', name:'平台佣金', value:5100000, level:3}, {id:'es3', name:'物流运输费', value:2200000, level:3}] },
-                    { id: 'ex-manage', name: '管理费用', value: 8100000, level: 2, children: [{id:'em1', name:'行政薪资', value:5200000, level:3}, {id:'em2', name:'办公租赁费', value:1800000, level:3}, {id:'em3', name:'差旅交通', value:1100000, level:3}] },
-                    { id: 'ex-rd', name: '研发费用', value: 1600000, level: 2, children: [{id:'er1', name:'人员薪酬', value:1200000, level:3}, {id:'er2', name:'设备折旧', value:400000, level:3}] },
-                    { id: 'ex-fin', name: '财务费用', value: 400000, level: 2, children: [{id:'ef1', name:'利息支出', value:350000, level:3}, {id:'ef2', name:'银行手续费', value:50000, level:3}] }
-                ]},
-                { id: 'profit-op', name: '五、营业利润', value: 13650000, level: 1, children: [] },
-                { id: 'profit-total', name: '六、利润总额', value: 14050000, level: 1, children: [{id:'non-op-in', name:'营业外收入', value:500000, level:2, children:[]}, {id:'non-op-out', name:'营业外支出', value:100000, level:2, children:[]}] },
-                { id: 'profit-net', name: '七、净利润', value: 10537500, level: 1, children: [] }
-            ],
-            cash: [
-                { id: 'c-op', name: '一、经营活动产生的现金流量', value: 12500000, level: 1, children: [
-                    { id: 'cop-in', name: '销售商品、提供劳务收到的现金', value: 91000000, level: 2, children: [] },
-                    { id: 'cop-out', name: '购买商品、接受劳务支付的现金', value: -78500000, level: 2, children: [] }
-                ]},
-                { id: 'c-inv', name: '二、投资活动产生的现金流量', value: -5200000, level: 1, children: [
-                    { id: 'cinv-in', name: '收回投资收到的现金', value: 1200000, level: 2, children: [] },
-                    { id: 'cinv-out', name: '购建固定资产支付的现金', value: -6400000, level: 2, children: [] }
-                ]},
-                { id: 'c-fin', name: '三、筹资活动产生的现金流量', value: 2800000, level: 1, children: [
-                    { id: 'cfin-in', name: '吸收投资收到的现金', value: 5000000, level: 2, children: [] },
-                    { id: 'cfin-out', name: '偿还债务支付的现金', value: -2200000, level: 2, children: [] }
-                ]},
-                { id: 'c-net', name: '四、现金及现金等价物净增加额', value: 10100000, level: 1, children: [] }
-            ],
-            budget: [
-                { id: 1, subject: '销售费用', budget: 16000000, actual: 15500000, percent: 96.8 },
-                { id: 2, subject: '管理费用', budget: 8500000, actual: 8100000, percent: 95.2 },
-                { id: 3, subject: '研发费用', budget: 2000000, actual: 1600000, percent: 80.0 },
-                { id: 4, subject: '财务费用', budget: 500000, actual: 400000, percent: 80.0 },
-                { id: 5, subject: '人力成本', budget: 12000000, actual: 11500000, percent: 95.8 },
-                { id: 6, subject: '办公行政', budget: 3000000, actual: 1800000, percent: 60.0 },
-                { id: 7, subject: '市场推广费', budget: 5000000, actual: 4800000, percent: 96.0 },
-                { id: 8, subject: '物流仓储费', budget: 4000000, actual: 2200000, percent: 55.0 },
-                { id: 9, subject: '差旅交通费', budget: 1500000, actual: 1100000, percent: 73.3 },
-            ]
-        };
-
-        // 模拟生成阿米巴预算数据
-        const getAmebaBudgetData = () => {
-            return AMEBA_DEPARTMENTS.map((name, index) => {
-                const baseBudget = name.includes('运营') ? 5000000 : 1000000;
-                const budget = Math.floor(baseBudget * (1 + Math.random()));
-                const actual = Math.floor(budget * (0.7 + Math.random() * 0.3));
-                return {
-                    id: index + 1, group: name, budget, actual, percent: Math.round(actual / budget * 100)
-                };
-            }).sort((a, b) => b.budget - a.budget);
-        };
-        
-        // 初始阿米巴数据
-        const INITIAL_AMEBA_BUDGET_DATA = getAmebaBudgetData();
-
-        // --- 2. 模拟明细账数据 (MOCK DATA) ---
-        const getMockAccountDetails = (itemName, totalValue) => {
-            const count = 6 + Math.floor(Math.random() * 5);
-            const details = [];
-            const types = ['银行转账', '报销单', '付款单', '收款单'];
-            const users = ['张三', '李四', '王五', '赵六'];
-            for (let i = 0; i < count; i++) {
-                const amount = Math.floor(totalValue / count * (0.8 + Math.random() * 0.4));
-                details.push({
-                    id: i + 1, date: `2025-10-${10 + i}`, docNo: `PZ-${100 + i}`,
-                    summary: `${itemName}-业务明细-${i + 1}`, type: types[i % 4],
-                    user: users[i % 4], debit: amount, credit: 0
-                });
-            }
-            return details;
-        };
-        const getMockExpenseDetails = (dept, subj) => Array.from({length:6},(_,i)=>({id:i,date:`2025-10-${10+i}`,desc:`${dept}-${subj}-报销单${i+1}`,user:['张三','李四'][i%2],amount:Math.floor(Math.random()*5000)+200}));
+        // 数据从外部文件 data_report_company.js 加载
 
         // --- 图标 ---
         const IconWrapper = ({ children, size = 18, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
@@ -161,6 +41,9 @@
         const Edit = (p) => <IconWrapper {...p}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></IconWrapper>;
         const Save = (p) => <IconWrapper {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IconWrapper>;
         const HelpCircle = (p) => <IconWrapper {...p}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></IconWrapper>;
+        const TrendingUp = (p) => <IconWrapper {...p}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></IconWrapper>;
+        const TrendingDown = (p) => <IconWrapper {...p}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></IconWrapper>;
+        const Minus = (p) => <IconWrapper {...p}><path d="M5 12h14"/></IconWrapper>;
 
         // --- 通用组件 ---
         const safeLocaleString = (val) => (val !== undefined && val !== null) ? val.toLocaleString() : '0';
@@ -216,8 +99,44 @@
             </div>
         );
 
+        // 计算同环比
+        const calculateComparison = (current, previous) => {
+            if (!previous || previous === 0) return { value: 0, percent: 0, trend: 'neutral' };
+            const diff = current - previous;
+            const percent = (diff / previous) * 100;
+            return { value: diff, percent: percent.toFixed(2), trend: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
+        };
+
+        // 趋势指示器组件
+        const TrendIndicator = ({ comparison }) => {
+            if (!comparison) return <span className="text-slate-400">-</span>;
+            const { percent, trend } = comparison;
+            const colorClass = trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-slate-500';
+            return (
+                <div className={`flex items-center justify-end gap-1 text-sm font-medium ${colorClass}`}>
+                    {trend === 'up' && <TrendingUp size={14}/>}
+                    {trend === 'down' && <TrendingDown size={14}/>}
+                    {trend === 'neutral' && <Minus size={14}/>}
+                    <span>{percent > 0 ? '+' : ''}{percent}%</span>
+                </div>
+            );
+        };
+
+        // 同环比角标组件
+        const ComparisonBadge = ({ current, previous, mode }) => {
+            if (mode === 'none' || !previous) return null;
+            const comparison = calculateComparison(current, previous);
+            const colorClass = comparison.trend === 'up' ? 'text-green-500' : comparison.trend === 'down' ? 'text-red-500' : 'text-slate-400';
+            const percentNum = parseFloat(comparison.percent);
+            return (
+                <span className={`text-[10px] ml-1 ${colorClass}`}>
+                    {percentNum > 0 ? '+' : ''}{comparison.percent}%
+                </span>
+            );
+        };
+
         // 树形表格组件 (Tree Table)
-        const TreeTable = ({ data, title, expandAll, dateSeed, isAnnual, onLeafClick }) => {
+        const TreeTable = ({ data, title, expandAll, dateSeed, isAnnual, onLeafClick, comparisonMode, selectedYear, selectedMonth }) => {
             const [expandedIds, setExpandedIds] = useState(new Set());
 
             useEffect(() => {
@@ -235,16 +154,33 @@
                 setExpandedIds(newSet);
             };
 
-            const getDynamicValue = (val) => {
-                if (isAnnual) return val; 
-                return Math.floor((val / 12) * (1 + (dateSeed % 10 - 5) / 100)); 
+            const getDynamicValue = (val, year, month) => {
+                const seed = month === 'all' ? 0 : (parseInt(year) + parseInt(month));
+                const annual = month === 'all';
+                if (annual) return val; 
+                return Math.floor((val / 12) * (1 + (seed % 10 - 5) / 100)); 
+            };
+
+            // 获取对比期间的值
+            const getComparisonValue = (val) => {
+                if (comparisonMode === 'none') return null;
+                let prevYear = selectedYear, prevMonth = selectedMonth;
+                if (comparisonMode === 'yoy') {
+                    prevYear = String(parseInt(selectedYear) - 1);
+                } else {
+                    const m = parseInt(selectedMonth);
+                    if (selectedMonth === 'all' || m === 1) { prevYear = String(parseInt(selectedYear) - 1); prevMonth = selectedMonth === 'all' ? 'all' : '12'; }
+                    else { prevMonth = String(m - 1); }
+                }
+                return getDynamicValue(val, prevYear, prevMonth);
             };
 
             const renderRow = (item, indentLevel = 0) => {
                 const hasChildren = item.children && item.children.length > 0;
                 const isExpanded = expandedIds.has(item.id);
-                const currentVal = getDynamicValue(item.value);
-                const prevVal = Math.floor(currentVal * 0.9); 
+                const currentVal = getDynamicValue(item.value, selectedYear, selectedMonth);
+                const prevVal = Math.floor(currentVal * 0.9);
+                const comparisonVal = getComparisonValue(item.value);
                 
                 return (
                     <React.Fragment key={item.id}>
@@ -268,7 +204,12 @@
                                     </span>
                                 </div>
                             </td>
-                            <td className="px-6 py-3.5 text-right font-mono text-slate-700">¥ {safeLocaleString(currentVal)}</td>
+                            <td className="px-6 py-3.5 text-right font-mono text-slate-700">
+                                <div className="flex flex-col items-end">
+                                    <span>¥ {safeLocaleString(currentVal)}</span>
+                                    <ComparisonBadge current={currentVal} previous={comparisonVal} mode={comparisonMode} />
+                                </div>
+                            </td>
                             <td className="px-6 py-3.5 text-right font-mono text-slate-400">¥ {safeLocaleString(prevVal)}</td>
                         </tr>
                         {isExpanded && hasChildren && item.children.map(child => renderRow(child, indentLevel + 1))}
@@ -346,8 +287,11 @@
         const App = () => {
             const [subTab, setSubTab] = useState('balance');
             const [selectedYear, setSelectedYear] = useState('2025');
-            const [selectedMonth, setSelectedMonth] = useState('all');
+            const [selectedMonth, setSelectedMonth] = useState('10');
             const [isAllExpanded, setIsAllExpanded] = useState(true);
+            
+            // 同环比状态
+            const [comparisonMode, setComparisonMode] = useState('none'); // none, yoy, mom
             
             // 预算调整相关状态
             const [isBudgetEditing, setIsBudgetEditing] = useState(false);
@@ -416,10 +360,24 @@
                 <div className="p-8 max-w-7xl mx-auto animate-fade-in">
                     <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div><h2 className="text-2xl font-bold text-slate-800">公司经营仓</h2><p className="text-slate-500 text-sm mt-1">全公司财务状况与预算执行监控</p></div>
-                        <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
-                            <div className="flex items-center gap-2 px-2 text-slate-600 text-sm"><Calendar size={16} className="text-indigo-500"/><span className="font-medium">报表期间:</span></div>
+                        <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm flex-wrap">
+                            <div className="flex items-center gap-2 px-2 text-slate-600 text-sm"><Calendar size={16} className="text-indigo-500"/><span className="font-medium">时间切片:</span></div>
                             <DateSelector year={selectedYear} setYear={setSelectedYear} month={selectedMonth} setMonth={setSelectedMonth} />
-                            {subTab !== 'budget' && <><div className="w-px h-6 bg-slate-200 mx-2"></div><ToggleSwitch label="全部展开" checked={isAllExpanded} onChange={setIsAllExpanded} /></>}
+                            
+                            <div className="w-px h-6 bg-slate-200"></div>
+                            
+                            {/* 对比模式选择 */}
+                            <select 
+                                value={comparisonMode}
+                                onChange={(e) => setComparisonMode(e.target.value)}
+                                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium hover:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
+                            >
+                                <option value="none">无对比</option>
+                                <option value="yoy">同比分析</option>
+                                <option value="mom">环比分析</option>
+                            </select>
+                            
+                            {subTab !== 'budget' && <><div className="w-px h-6 bg-slate-200"></div><ToggleSwitch label="全部展开" checked={isAllExpanded} onChange={setIsAllExpanded} /></>}
                         </div>
                     </div>
                     
@@ -431,9 +389,9 @@
                             {renderTabButton('budget', '预算监控', '数据来源：ads_BudgetMonitoring')}
                         </div>
 
-                        {subTab === 'balance' && <TreeTable title="资产负债表" data={FULL_COMPANY_REPORTS.balance} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} />}
-                        {subTab === 'profit' && <TreeTable title="利润表" data={FULL_COMPANY_REPORTS.profit} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} />}
-                        {subTab === 'cash' && <TreeTable title="现金流量表" data={FULL_COMPANY_REPORTS.cash} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} />}
+                        {subTab === 'balance' && <TreeTable title="资产负债表" data={FULL_COMPANY_REPORTS.balance} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} comparisonMode={comparisonMode} selectedYear={selectedYear} selectedMonth={selectedMonth} />}
+                        {subTab === 'profit' && <TreeTable title="利润表" data={FULL_COMPANY_REPORTS.profit} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} comparisonMode={comparisonMode} selectedYear={selectedYear} selectedMonth={selectedMonth} />}
+                        {subTab === 'cash' && <TreeTable title="现金流量表" data={FULL_COMPANY_REPORTS.cash} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} comparisonMode={comparisonMode} selectedYear={selectedYear} selectedMonth={selectedMonth} />}
 
                         {subTab === 'budget' && (
                             <div className="space-y-10 animate-fade-in">
@@ -460,7 +418,10 @@
                                             <div className="border border-slate-200 rounded-xl overflow-hidden">
                                                 <table className="w-full text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-6 py-4 text-left">阿米巴单元</th><th className="px-6 py-4 text-right">部门预算</th><th className="px-6 py-4 text-right">实际支出</th><th className="px-6 py-4 w-1/3">进度</th></tr></thead>
                                                     <tbody className="divide-y divide-slate-100">
-                                                        {currentAmebaBudgetDisplay.map(d=><tr key={d.id} className="cursor-pointer row-hover-effect" onClick={()=>setAmebaBudgetDetailModal(d)}><td className="px-6 py-4 font-bold text-slate-700 flex gap-2 items-center">{d.group}<ArrowRight size={14} className="text-slate-300"/></td><td className="px-6 py-4 text-right font-mono text-slate-500">¥ {safeLocaleString(d.budget)}</td><td className="px-6 py-4 text-right font-mono font-bold">¥ {safeLocaleString(d.actual)}</td><td className="px-6 py-4"><ProgressBar percent={d.percent}/></td></tr>)}
+                                                        {currentAmebaBudgetDisplay.map(d=>{
+                                                            const prevActual = Math.floor(d.actual * 0.9);
+                                                            return (<tr key={d.id} className="cursor-pointer row-hover-effect" onClick={()=>setAmebaBudgetDetailModal(d)}><td className="px-6 py-4 font-bold text-slate-700 flex gap-2 items-center">{d.group}<ArrowRight size={14} className="text-slate-300"/></td><td className="px-6 py-4 text-right font-mono text-slate-500">¥ {safeLocaleString(d.budget)}</td><td className="px-6 py-4 text-right font-mono font-bold"><div className="flex flex-col items-end"><span>¥ {safeLocaleString(d.actual)}</span><ComparisonBadge current={d.actual} previous={prevActual} mode={comparisonMode} /></div></td><td className="px-6 py-4"><ProgressBar percent={d.percent}/></td></tr>);
+                                                        })}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -474,7 +435,10 @@
                                             <div className="border border-slate-200 rounded-xl overflow-hidden">
                                                 <table className="w-full text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-6 py-4 text-left">财务科目</th><th className="px-6 py-4 text-right">预算额</th><th className="px-6 py-4 text-right">已使用</th><th className="px-6 py-4 w-1/3">进度</th></tr></thead>
                                                     <tbody className="divide-y divide-slate-100">
-                                                        {currentCompanyBudget.map(d=><tr key={d.id} className="cursor-pointer row-hover-effect" onClick={()=>setBudgetSubjectDetailModal(d)}><td className="px-6 py-4 font-medium text-slate-700 flex gap-2 items-center">{d.subject}<ArrowRight size={14} className="text-slate-300"/></td><td className="px-6 py-4 text-right font-mono text-slate-500">¥ {safeLocaleString(d.budget)}</td><td className="px-6 py-4 text-right font-mono font-bold">¥ {safeLocaleString(d.actual)}</td><td className="px-6 py-4"><ProgressBar percent={d.percent}/></td></tr>)}
+                                                        {currentCompanyBudget.map(d=>{
+                                                            const prevActual = Math.floor(d.actual * 0.88);
+                                                            return (<tr key={d.id} className="cursor-pointer row-hover-effect" onClick={()=>setBudgetSubjectDetailModal(d)}><td className="px-6 py-4 font-medium text-slate-700 flex gap-2 items-center">{d.subject}<ArrowRight size={14} className="text-slate-300"/></td><td className="px-6 py-4 text-right font-mono text-slate-500">¥ {safeLocaleString(d.budget)}</td><td className="px-6 py-4 text-right font-mono font-bold"><div className="flex flex-col items-end"><span>¥ {safeLocaleString(d.actual)}</span><ComparisonBadge current={d.actual} previous={prevActual} mode={comparisonMode} /></div></td><td className="px-6 py-4"><ProgressBar percent={d.percent}/></td></tr>);
+                                                        })}
                                                     </tbody>
                                                 </table>
                                             </div>
