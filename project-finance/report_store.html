@@ -8,7 +8,6 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="data_report_store.js"></script>
     <script>tailwind.config = { theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } }, colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } } } } }</script>
     <style>::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; } body { overflow-x: hidden; } .chart-hover-scale:hover { transform: scale(1.02); transition: transform 0.3s; cursor: pointer; }</style>
 </head>
@@ -17,11 +16,44 @@
     <script type="text/babel">
         const { useState, useMemo } = React;
         
-        // 数据从外部文件 data_report_store.js 加载
-        // 使用: BASE_STORE_DATA, getStoreDetailData, getDayOrderDetails, getProductFinanceDetails, COST_PIE_DATA, SUBJECT_PIE_DATA
-        
-        // 兼容旧函数名
-        const getDetailData = getStoreDetailData;
+        // --- 1. 数据定义 (写死) ---
+        const BASE_STORE_DATA = [
+            { id: 1, name: '淘宝A店', platform: '淘宝', gmv: 450000, cost: 300000, grossMargin: 33.3, netMargin: 15.2, returnRate: 5.4, roi: 3.2, aov: 158, trend: 'up' },
+            { id: 2, name: '抖音B店', platform: '抖音', gmv: 820000, cost: 550000, grossMargin: 32.9, netMargin: 12.8, returnRate: 8.2, roi: 2.8, aov: 89, trend: 'up' },
+            { id: 3, name: '快手C店', platform: '快手', gmv: 320000, cost: 200000, grossMargin: 37.5, netMargin: 18.5, returnRate: 4.1, roi: 4.1, aov: 65, trend: 'down' },
+            { id: 4, name: '淘宝B店', platform: '淘宝', gmv: 150000, cost: 110000, grossMargin: 26.6, netMargin: 8.5, returnRate: 6.2, roi: 2.1, aov: 120, trend: 'up' },
+            { id: 5, name: '抖音A店', platform: '抖音', gmv: 1200000, cost: 880000, grossMargin: 26.6, netMargin: 10.5, returnRate: 9.5, roi: 2.5, aov: 92, trend: 'up' },
+        ];
+
+        // 模拟明细数据生成器
+        const getDetailData = (name) => Array.from({length:5},(_,i)=>({
+            id:i,
+            date:`2025-10-0${i+1}`,
+            desc:`${name} - 业务明细 ${i+1}`, 
+            amount:Math.floor(Math.random()*50000)+1000
+        }));
+
+        // 模拟日维度订单明细数据
+        const getDayOrderDetails = (storeName, date) => Array.from({length: 12}, (_, i) => ({
+            id: `ORD-${20251000 + i}`,
+            time: `${date} 10:${10+i}`,
+            product: `商品示例-${String.fromCharCode(65+i)}`,
+            amount: Math.floor(Math.random() * 200) + 50,
+            status: ['已结算', '已发货', '退款中', '已结算'][i % 4]
+        }));
+
+        // 模拟商品财务详情数据
+        const getProductFinanceDetails = (orderId) => ({
+            id: orderId,
+            productCode: `SKU-${orderId.split('-')[1] || '001'}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`,
+            productCost: (Math.random() * 40 + 20).toFixed(2), // 新增商品成本
+            salesIncome: (Math.random() * 500 + 100).toFixed(2),
+            otherIncome: (Math.random() * 20).toFixed(2),
+            salesReturn: Math.random() > 0.8 ? (Math.random() * 50).toFixed(2) : '0.00',
+            platformFee: (Math.random() * 30 + 5).toFixed(2),
+            commission: (Math.random() * 50 + 10).toFixed(2),
+            otherFee: (Math.random() * 10).toFixed(2)
+        });
 
         // --- 图标 ---
         const IconWrapper = ({ children, size = 20, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);

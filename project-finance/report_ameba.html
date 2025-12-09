@@ -8,7 +8,6 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="data_report_ameba.js"></script>
     <script>tailwind.config = { theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } }, colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } } } } }</script>
     <style>
         ::-webkit-scrollbar { width: 6px; height: 6px; } 
@@ -23,13 +22,53 @@
     <script type="text/babel">
         const { useState, useMemo } = React;
 
-        // 数据从外部文件 data_report_ameba.js 加载
+        // --- 1. 基础数据定义 (写死) ---
+        const AMEBA_DEPARTMENTS = ['运营部-淘宝', '运营部-抖音', '运营部-快手', '商品部', '开发部', '产研部', '客服部', '仓储部', '人事部', '财务部'];
+        
+        // --- 2. 下钻详情数据生成器 ---
+        // 生成月度趋势数据
+        const getAmebaTrendData = (baseIncome) => Array.from({ length: 12 }, (_, i) => {
+            const income = Math.floor(baseIncome / 12 * (0.8 + Math.random() * 0.4));
+            const cost = Math.floor(income * (0.6 + Math.random() * 0.2));
+            return { month: `${i + 1}月`, income, cost, profit: income - cost };
+        });
+
+        // 生成成本结构数据
+        const getCostStructure = () => [
+            { label: '人力成本', percent: 0.4, color: '#6366f1' },
+            { label: '营销推广', percent: 0.3, color: '#3b82f6' },
+            { label: '办公分摊', percent: 0.15, color: '#f59e0b' },
+            { label: '其他杂项', percent: 0.15, color: '#cbd5e1' }
+        ];
+
+        // 生成专属损益表数据
+        const getAmebaPnL = (income, directCost, allocatedCost) => [
+            { name: '一、经营收入', value: income, type: 'income', level: 1 },
+            { name: '二、可控成本 (直接成本)', value: directCost, type: 'cost', level: 1 },
+            { name: '人力成本', value: Math.floor(directCost * 0.6), type: 'cost', level: 2 },
+            { name: '业务费用', value: Math.floor(directCost * 0.3), type: 'cost', level: 2 },
+            { name: '其他直接支出', value: Math.floor(directCost * 0.1), type: 'cost', level: 2 },
+            { name: '三、边际贡献', value: income - directCost, type: 'profit', level: 1, highlight: true },
+            { name: '四、分摊/交易成本', value: allocatedCost, type: 'cost', level: 1 },
+            { name: '房租水电分摊', value: Math.floor(allocatedCost * 0.4), type: 'cost', level: 2 },
+            { name: '中台服务分摊', value: Math.floor(allocatedCost * 0.4), type: 'cost', level: 2 },
+            { name: '资金占用费', value: Math.floor(allocatedCost * 0.2), type: 'cost', level: 2 },
+            { name: '五、核算利润', value: income - directCost - allocatedCost, type: 'profit', level: 1, highlight: true, final: true }
+        ];
+
+        // 生成科目明细数据
+        const getDetailData = (name, total) => Array.from({ length: 8 }, (_, i) => ({
+            id: i,
+            date: `2025-10-${10 + i}`,
+            desc: `${name} - 专项业务明细 #${1001 + i}`,
+            type: name.includes('收入') ? '入账' : '支出',
+            user: ['张三', '李四', '王五'][i % 3],
+            amount: Math.floor(total / 10 * (0.8 + Math.random() * 0.4))
+        }));
 
         // --- 组件 ---
         const IconWrapper = ({ children, size = 20, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
         const TrendingUp = (p) => <IconWrapper {...p}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></IconWrapper>;
-        const TrendingDown = (p) => <IconWrapper {...p}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></IconWrapper>;
-        const Minus = (p) => <IconWrapper {...p}><path d="M5 12h14"/></IconWrapper>;
         const Users = (p) => <IconWrapper {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></IconWrapper>;
         const PieChart = (p) => <IconWrapper {...p}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></IconWrapper>;
         const FileSpreadsheet = (p) => <IconWrapper {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></IconWrapper>;
@@ -40,54 +79,8 @@
         const Layers = (p) => <IconWrapper {...p}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></IconWrapper>;
         const ChevronRight = (p) => <IconWrapper {...p}><path d="m9 18 6-6-6-6"/></IconWrapper>;
         const Calendar = (p) => <IconWrapper {...p}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></IconWrapper>;
-        const Award = (p) => <IconWrapper {...p}><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></IconWrapper>;
 
         const safeLocaleString = (val) => (val !== undefined && val !== null) ? val.toLocaleString() : '0';
-
-        // 排名徽章组件
-        const RankBadge = ({ rank }) => {
-            const style = rank === 1 ? { background: 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)', color: '#92400e' } 
-                : rank === 2 ? { background: 'linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%)', color: '#57534e' } 
-                : rank === 3 ? { background: 'linear-gradient(135deg, #cd7f32 0%, #e8a87c 100%)', color: '#78350f' } 
-                : { background: '#f1f5f9', color: '#64748b' };
-            return <span className="inline-flex items-center justify-center min-w-[24px] h-6 rounded-md font-semibold text-xs" style={style}>{rank}</span>;
-        };
-
-        // 计算同环比
-        const calculateComparison = (current, previous) => {
-            if (!previous || previous === 0) return { value: 0, percent: 0, trend: 'neutral' };
-            const diff = current - previous;
-            const percent = (diff / previous) * 100;
-            return { value: diff, percent: percent.toFixed(2), trend: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral' };
-        };
-
-        // 趋势指示器组件
-        const TrendIndicator = ({ comparison }) => {
-            if (!comparison) return <span className="text-slate-400">-</span>;
-            const { percent, trend } = comparison;
-            const colorClass = trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-slate-500';
-            return (
-                <div className={`flex items-center justify-end gap-1 text-sm font-medium ${colorClass}`}>
-                    {trend === 'up' && <TrendingUp size={14}/>}
-                    {trend === 'down' && <TrendingDown size={14}/>}
-                    {trend === 'neutral' && <Minus size={14}/>}
-                    <span>{percent > 0 ? '+' : ''}{percent}%</span>
-                </div>
-            );
-        };
-
-        // 同环比角标组件
-        const ComparisonBadge = ({ comparison, mode }) => {
-            if (mode === 'none' || !comparison) return null;
-            const { percent, trend } = comparison;
-            const colorClass = trend === 'up' ? 'text-green-500' : trend === 'down' ? 'text-red-500' : 'text-slate-400';
-            const percentNum = parseFloat(percent);
-            return (
-                <span className={`text-[10px] ml-1 ${colorClass}`}>
-                    {percentNum > 0 ? '+' : ''}{percent}%
-                </span>
-            );
-        };
 
         // 年月选择器组件
         const DateSelector = ({ year, setYear, month, setMonth }) => (
@@ -190,67 +183,39 @@
             const [selectedAmeba, setSelectedAmeba] = useState(null);
             const [detailModalItem, setDetailModalItem] = useState(null); // 第三级明细弹窗
             const [selectedYear, setSelectedYear] = useState('2025');
-            const [selectedMonth, setSelectedMonth] = useState('10');
-            
-            // 同环比、排名状态
-            const [comparisonMode, setComparisonMode] = useState('none'); // none, yoy, mom
-            const [showRank, setShowRank] = useState(true);
+            const [selectedMonth, setSelectedMonth] = useState('all');
 
             // 根据年月计算随机种子
             const dateSeed = selectedMonth === 'all' ? 0 : (parseInt(selectedYear) + parseInt(selectedMonth));
             const isAnnual = selectedMonth === 'all';
             const periodLabel = `${selectedYear}年 ${selectedMonth === 'all' ? '全年' : selectedMonth + '月'}`;
 
-            // 生成指定期间的数据
-            const generatePeriodData = (year, month) => {
-                const seed = month === 'all' ? parseInt(year) : parseInt(year) * 100 + parseInt(month);
-                return AMEBA_DEPARTMENTS.map((name, index) => {
-                    // 使用确定性随机数
-                    const baseIncome = name.includes('运营') ? 2000000 : 500000;
-                    const variance = ((seed * (index + 1) * 7) % 100) / 100;
-                    let income = Math.floor(baseIncome * (0.8 + variance * 0.4));
-                    if (month !== 'all') income = Math.floor(income / 12);
-                    
-                    const directCost = Math.floor(income * 0.3) + 50000;
-                    const allocatedCost = Math.floor(income * 0.15) + 20000;
-                    const profit = income - directCost - allocatedCost;
-                    return { id: index + 1, group: name, income, directCost, allocatedCost, profit };
-                });
-            };
-
-            // 动态计算数据（含同环比）
+            // 动态计算数据
             const currentAmebaData = useMemo(() => {
-                let data = generatePeriodData(selectedYear, selectedMonth);
-                
-                // 计算同环比
-                if (comparisonMode !== 'none') {
-                    let prevYear = selectedYear, prevMonth = selectedMonth;
-                    if (comparisonMode === 'yoy') {
-                        prevYear = String(parseInt(selectedYear) - 1);
-                    } else {
-                        const m = parseInt(selectedMonth);
-                        if (m === 1) { prevYear = String(parseInt(selectedYear) - 1); prevMonth = '12'; }
-                        else { prevMonth = String(m - 1); }
+                return AMEBA_DEPARTMENTS.map((name, index) => {
+                    // 模拟数据生成 (根据 dateSeed 变化)
+                    let income = name.includes('运营') ? Math.floor(Math.random() * 2000000) + 1000000 : Math.floor(Math.random() * 500000); 
+                    if (!isAnnual) {
+                        // 月度数据是年度的 1/12 左右，加随机波动
+                         income = Math.floor(income / 12 * (1 + (dateSeed % 5 - 2) / 10));
                     }
-                    const prevData = generatePeriodData(prevYear, prevMonth);
-                    data = data.map(item => {
-                        const prev = prevData.find(p => p.id === item.id);
-                        return { ...item, comparison: prev ? calculateComparison(item.profit, prev.profit) : null };
-                    });
-                }
-                
-                // 排序并添加排名
-                data = data.sort((a, b) => b.profit - a.profit);
-                if (showRank) {
-                    data = data.map((item, i) => ({ ...item, rank: i + 1 }));
-                }
-                
-                return data.map(item => ({
-                    ...item,
-                    totalCost: item.directCost + item.allocatedCost,
-                    ratio: item.income > 0 ? (item.profit / item.income * 100).toFixed(1) + '%' : '0%'
-                }));
-            }, [selectedYear, selectedMonth, comparisonMode, showRank]);
+                    
+                    const directCost = Math.floor(income * 0.3) + 50000; 
+                    const allocatedCost = Math.floor(income * 0.15) + 20000; 
+                    const totalCost = directCost + allocatedCost;
+                    const profit = income - totalCost;
+                    return { 
+                        id: index + 1, 
+                        group: name, 
+                        income, 
+                        directCost, 
+                        allocatedCost, 
+                        totalCost, 
+                        profit, 
+                        ratio: income > 0 ? (profit / income * 100).toFixed(1) + '%' : '0%' 
+                    };
+                }).sort((a,b) => b.profit - a.profit);
+            }, [dateSeed, isAnnual]);
 
             // 计算总利润
             const totalProfit = currentAmebaData.reduce((acc, curr) => acc + curr.profit, 0);
@@ -282,32 +247,9 @@
                             <h2 className="text-2xl font-bold text-slate-800">阿米巴经营仓</h2>
                             <p className="text-slate-500 text-sm mt-1">各最小经营单元核算数据</p>
                         </div>
-                        <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm flex-wrap">
-                            <div className="flex items-center gap-2 px-2 text-slate-600 text-sm"><Calendar size={16} className="text-indigo-500"/><span className="font-medium">时间切片:</span></div>
+                        <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2 px-2 text-slate-600 text-sm"><Calendar size={16} className="text-indigo-500"/><span className="font-medium">报表期间:</span></div>
                             <DateSelector year={selectedYear} setYear={setSelectedYear} month={selectedMonth} setMonth={setSelectedMonth} />
-                            
-                            <div className="w-px h-6 bg-slate-200"></div>
-                            
-                            {/* 对比模式选择 */}
-                            <select 
-                                value={comparisonMode}
-                                onChange={(e) => setComparisonMode(e.target.value)}
-                                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium hover:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
-                            >
-                                <option value="none">无对比</option>
-                                <option value="yoy">同比分析</option>
-                                <option value="mom">环比分析</option>
-                            </select>
-                            
-                            {/* 排名按钮 */}
-                            <button 
-                                onClick={() => setShowRank(!showRank)}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
-                                    showRank ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'
-                                }`}
-                            >
-                                <Award size={14}/> 排名
-                            </button>
                         </div>
                     </div>
                     
@@ -337,7 +279,7 @@
                             <table className="w-full text-sm">
                                 <thead className="bg-slate-50 text-slate-500">
                                     <tr>
-                                        {showRank && <th className="px-4 py-4 text-center w-20">排名</th>}
+                                        <th className="px-6 py-4 text-left">排名</th>
                                         <th className="px-6 py-4 text-left">阿米巴单元</th>
                                         <th className="px-6 py-4 text-right">总收入</th>
                                         <th className="px-6 py-4 text-right text-indigo-600 bg-indigo-50/30">可控成本</th>
@@ -348,19 +290,14 @@
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {currentAmebaData.map((r)=>(
-                                        <tr key={r.id} className={`hover:bg-indigo-50 row-hover-effect transition-colors ${showRank && r.rank <= 3 ? (r.rank === 1 ? 'bg-gradient-to-r from-amber-50' : r.rank === 2 ? 'bg-gradient-to-r from-slate-50' : 'bg-gradient-to-r from-orange-50') : ''}`} onClick={() => setSelectedAmeba(r)}>
-                                            {showRank && <td className="px-4 py-4 text-center"><RankBadge rank={r.rank} /></td>}
+                                    {currentAmebaData.map((r,i)=>(
+                                        <tr key={r.id} className="hover:bg-indigo-50 row-hover-effect transition-colors" onClick={() => setSelectedAmeba(r)}>
+                                            <td className="px-6 py-4 font-bold text-slate-400">#{i+1}</td>
                                             <td className="px-6 py-4 font-bold text-slate-700">{r.group}</td>
                                             <td className="px-6 py-4 text-right font-mono">{r.income.toLocaleString()}</td>
                                             <td className="px-6 py-4 text-right font-mono text-indigo-600 bg-indigo-50/30 font-medium">{r.directCost.toLocaleString()}</td>
                                             <td className="px-6 py-4 text-right font-mono text-slate-500 bg-slate-50/30">{r.allocatedCost.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-right font-mono font-bold text-slate-800">
-                                                <div className="flex flex-col items-end">
-                                                    <span>{r.profit.toLocaleString()}</span>
-                                                    <ComparisonBadge comparison={r.comparison} mode={comparisonMode} />
-                                                </div>
-                                            </td>
+                                            <td className="px-6 py-4 text-right font-mono font-bold text-slate-800">{r.profit.toLocaleString()}</td>
                                             <td className="px-6 py-4 text-right font-mono text-emerald-600">{r.ratio}</td>
                                             <td className="px-6 py-4 text-center text-indigo-400"><ArrowRight size={16} /></td>
                                         </tr>
