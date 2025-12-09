@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置管理</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out', 'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } } }, colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } } } } }</script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        body { overflow-x: hidden; }
+        .active-tab { border-bottom: 2px solid #4f46e5; color: #4f46e5; font-weight: 600; }
+        .inactive-tab { border-bottom: 2px solid transparent; color: #64748b; }
+        .inactive-tab:hover { color: #334155; }
+        .sub-tab-btn { padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 500; transition: all 0.2s; white-space: nowrap; }
+        .sub-tab-active { color: #4f46e5; border-bottom-width: 2px; border-color: #4f46e5; background-color: rgba(238, 242, 255, 0.5); }
+        .sub-tab-inactive { color: #64748b; border-bottom-width: 2px; border-color: transparent; }
+        .sub-tab-inactive:hover { color: #334155; background-color: #f8fafc; }
+        .form-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; transition: all 0.2s; }
+        .form-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+        .form-input:disabled { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+        .form-label { display: block; font-size: 0.875rem; font-weight: 500; color: #475569; margin-bottom: 0.25rem; }
+    </style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 图标 ---
+        const IconWrapper = ({ children, size = 18, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
+        const Edit = (p) => <IconWrapper {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></IconWrapper>;
+        const Trash2 = (p) => <IconWrapper {...p}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></IconWrapper>;
+        const Plus = (p) => <IconWrapper {...p}><path d="M5 12h14"/><path d="M12 5v14"/></IconWrapper>;
+        const Lock = (p) => <IconWrapper {...p}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></IconWrapper>;
+        const Check = (p) => <IconWrapper {...p}><polyline points="20 6 9 17 4 12"/></IconWrapper>;
+        const X = (p) => <IconWrapper {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconWrapper>;
+
+        // --- 初始数据定义 ---
+        const INITIAL_DIM_DATA = {
+            customer: [
+                { id: 1, code: 'PJT-5001', name: '橘子树去哪儿', contact: '李经理', phone: '13800138000', status: '启用' },
+                { id: 2, code: 'PJT-5002', name: '饭饭又饿了', contact: '王总', phone: '13900139000', status: '启用' },
+                { id: 3, code: 'PJT-5003', name: '小美严选', contact: '张三', phone: '13700137000', status: '停用' }
+            ],
+            platform: [
+                { id: 1, name: '抖音', code: 'PLAT-DY', type: '电商', status: '启用' },
+                { id: 2, name: '淘宝', code: 'PLAT-TB', type: '电商', status: '启用' },
+                { id: 3, name: '快手', code: 'PLAT-KS', type: '电商', status: '启用' },
+                { id: 4, name: '拼多多', code: 'PLAT-PDD', type: '电商', status: '启用' }
+            ],
+            store: [
+                { id: 1, code: 'SHP-4001', name: '橘子树一号店', customer: '橘子树去哪儿', platform: '淘宝', department: '运营部-淘宝', status: '启用', effectiveDate: '2024-01-01' },
+                { id: 2, code: 'SHP-4002', name: '饭饭四号店', customer: '饭饭又饿了', platform: '抖音', department: '运营部-抖音', status: '启用', effectiveDate: '2024-03-15' },
+                { id: 3, code: 'SHP-4003', name: '小美严选一店', customer: '小美严选', platform: '拼多多', department: '运营部-拼多多', status: '启用', effectiveDate: '2024-06-01' },
+                { id: 4, code: 'SHP-4004', name: '橘子树三号店', customer: '橘子树去哪儿', platform: '快手', department: '运营部-快手', status: '启用', effectiveDate: '2024-02-20' }
+            ],
+            department: [
+                { id: 1, code: 'DPT-1001', name: '总经办', parent: '-', manager: '张总', financeAttr: '管理费用', status: '启用' },
+                { id: 2, code: 'DPT-2001', name: '运营部-淘宝', parent: '运营中心', manager: '李经理', financeAttr: '销售费用', status: '启用' },
+                { id: 3, code: 'DPT-2002', name: '研发部', parent: '产研中心', manager: '王工', financeAttr: '研发费用', status: '启用' },
+                { id: 4, code: 'DPT-3001', name: '供应链部', parent: '-', manager: '赵主管', financeAttr: '生产成本', status: '启用' }
+            ],
+            employee: [
+                { id: 1, name: '张三', code: 'EMP-001', dept: '财务部', title: '会计', status: '在职' },
+                { id: 2, name: '李四', code: 'EMP-002', dept: '运营部', title: '运营专员', status: '在职' },
+                { id: 3, name: '王五', code: 'EMP-003', dept: '人事部', title: 'HRBP', status: '离职' },
+                { id: 4, name: '赵六', code: 'EMP-004', dept: '开发部', title: '工程师', status: '在职' }
+            ],
+            product: [
+                { id: 1, sku: 'SKU-001', name: '纯棉T恤', cost: 25.00, brand: '自营', category: '服装' },
+                { id: 2, sku: 'SKU-002', name: '运动水壶', cost: 12.50, brand: '运动家', category: '百货' },
+                { id: 3, sku: 'SKU-003', name: '蓝牙耳机', cost: 85.00, brand: '极客', category: '数码' }
+            ],
+            subject: [
+                { id: 1, code: '6602', name: '管理费用', parent: '期间费用', level: 2, category: '费用' },
+                { id: 2, code: '6601', name: '销售费用', parent: '期间费用', level: 2, category: '费用' },
+                { id: 3, code: '6001', name: '主营业务收入', parent: '营业收入', level: 2, category: '收入' },
+                { id: 4, code: '1001', name: '库存现金', parent: '货币资金', level: 2, category: '资产' }
+            ]
+        };
+
+        const INITIAL_ONLINE_MAPPING_RULES = [
+            { id: 1, platform: '快手', type: '结算账单', sourceField: '订单实付(元)', logic: '取值', targetTable: 'F_INCOME', subject: '销售收入', code: '4010101', condition: '' },
+            { id: 2, platform: '快手', type: '结算账单', sourceField: '政府补贴+支付营销补贴', logic: '加和', targetTable: 'F_INCOME', subject: '营业外收入', code: '403', condition: '' },
+            { id: 3, platform: '快手', type: '结算账单', sourceField: '订单退款(元)+支付营销', logic: '加和', targetTable: 'F_TRANSACTION_COSTS', subject: '销售退回', code: '40102', condition: '' },
+            { id: 4, platform: '抖音', type: '结算账单', sourceField: '用户实付', logic: '取值', targetTable: 'F_INCOME', subject: '销售收入', code: '4010101', condition: 'value > 0' },
+            { id: 5, platform: '抖音', type: '结算账单', sourceField: '用户实付', logic: '取值', targetTable: 'F_INCOME', subject: '销售退回', code: '40102', condition: 'value < 0' },
+            { id: 6, platform: '淘宝', type: '结算账单', sourceField: '订单实际金额(元)', logic: '取值', targetTable: 'F_INCOME', subject: '销售收入', code: '4010101', condition: '' },
+        ];
+
+        const INITIAL_ONLINE_STRUCTURE_RULES = [
+            { id: 1, checkId: 'CHK-001', platform: '快手', type: '结算账单', colName: '订单号', colOrder: 1, valueType: '文本', allowNull: '否', regex: '^[0-9]+$', status: '启用' },
+            { id: 2, checkId: 'CHK-002', platform: '快手', type: '结算账单', colName: '实付金额', colOrder: 2, valueType: '数值', allowNull: '否', regex: '', status: '启用' },
+            { id: 3, checkId: 'CHK-003', platform: '抖音', type: '订单管理', colName: '订单ID', colOrder: 1, valueType: '文本', allowNull: '否', regex: '', status: '启用' }
+        ];
+
+        // 线下账单配置 - 数据源
+        const INITIAL_OFFLINE_MAIN = [ // 对应字段映射表数据 (Swap)
+            { id: 1, dimId: 'FlvqbVbIma8So...', dataId: 'tblfsn2XLGxCT60f', date: '付款计划_计划日期', amount: '付款计划_计划金额', category: '支出类别', mapTable: '潮前审批申请单多维表格-A' },
+            { id: 2, dimId: '', dataId: 'tblhzDobx7bBgGaU', date: '付款计划_计划日期', amount: '付款计划_计划金额', category: '支出类别', mapTable: '潮前审批申请单多维表格-A' }
+        ];
+        
+        const INITIAL_OFFLINE_FIELD = [ // 对应主流程规则数据 (Swap)
+            { id: 1, mapName: '潮前审批申请单多维表格-A', sourceField: '发起人部门', standardDim: '部门名称', status: true },
+            { id: 2, mapName: '潮前审批申请单多维表格-A', sourceField: '发起人', standardDim: '员工姓名', status: true }
+        ];
+
+        const INITIAL_OFFLINE_SUBJECT = [
+            { id: 1, dictId: 'DIC-001', dictName: '费用类型字典', sourceValue: '差旅费', targetTable: 'F_COST', targetCode: '660101' },
+            { id: 2, dictId: 'DIC-001', dictName: '费用类型字典', sourceValue: '办公用品', targetTable: 'F_COST', targetCode: '660102' },
+            { id: 3, dictId: 'DIC-002', dictName: '支出类别字典', sourceValue: '采购付款', targetTable: 'F_COST', targetCode: '6401' }
+        ];
+
+        // --- 下拉选项 ---
+        const BILL_TYPES = ['订单管理', '结算账单', '资金账单', '保证金账单'];
+        const CALC_LOGICS = ['取值', '加和'];
+        const TARGET_TABLES = [{ name: '交易收入表', code: 'F_INCOME' }, { name: '交易成本表', code: 'F_TRANSACTION_COSTS' }];
+
+        // --- 表单 Schema 定义 ---
+        const FORM_SCHEMAS = {
+            // 维度表单配置
+            customer: [
+                { key: 'code', label: '客户ID', type: 'text', disabled: true, placeholder: '自动生成' },
+                { key: 'name', label: '客户名称', type: 'text' },
+                { key: 'contact', label: '联系人', type: 'text' },
+                { key: 'phone', label: '联系电话', type: 'text' },
+                { key: 'status', label: '状态', type: 'select', options: ['启用', '停用'] }
+            ],
+            platform: [
+                { key: 'name', label: '平台名称', type: 'text' },
+                { key: 'code', label: '编码', type: 'text' },
+                { key: 'type', label: '平台类型', type: 'select', options: ['电商', '社交', '线下'] },
+                { key: 'status', label: '状态', type: 'select', options: ['启用', '停用'] }
+            ],
+            store: [
+                { key: 'code', label: '店铺ID', type: 'text', disabled: true },
+                { key: 'name', label: '店铺名称', type: 'text' },
+                { key: 'customer', label: '归属客户', type: 'select', options: INITIAL_DIM_DATA.customer.map(c=>c.name) },
+                { key: 'platform', label: '归属平台', type: 'select', options: INITIAL_DIM_DATA.platform.map(p=>p.name) },
+                { key: 'department', label: '归属部门', type: 'select', options: INITIAL_DIM_DATA.department.map(d=>d.name) },
+                { key: 'status', label: '状态', type: 'select', options: ['启用', '停用'] },
+                { key: 'effectiveDate', label: '生效日期', type: 'date' }
+            ],
+            department: [
+                { key: 'code', label: '部门ID', type: 'text' },
+                { key: 'name', label: '部门名称', type: 'text' },
+                { key: 'parent', label: '上级部门', type: 'text' },
+                { key: 'manager', label: '部门负责人', type: 'text' },
+                { key: 'financeAttr', label: '财务属性', type: 'select', options: ['管理费用', '销售费用', '研发费用', '生产成本'] },
+                { key: 'status', label: '状态', type: 'select', options: ['启用', '停用'] }
+            ],
+            employee: [
+                { key: 'name', label: '员工姓名', type: 'text' },
+                { key: 'code', label: '工号', type: 'text' },
+                { key: 'dept', label: '所属部门', type: 'select', options: INITIAL_DIM_DATA.department.map(d=>d.name) },
+                { key: 'title', label: '岗位', type: 'text' },
+                { key: 'status', label: '状态', type: 'select', options: ['在职', '离职'] }
+            ],
+            product: [
+                { key: 'sku', label: '商品SKU', type: 'text' },
+                { key: 'name', label: '商品名称', type: 'text' },
+                { key: 'cost', label: '商品成本', type: 'number' },
+                { key: 'brand', label: '品牌', type: 'text' },
+                { key: 'category', label: '品类', type: 'text' }
+            ],
+            subject: [
+                { key: 'code', label: '科目编码', type: 'text' },
+                { key: 'name', label: '科目名称', type: 'text' },
+                { key: 'parent', label: '上级科目', type: 'text' },
+                { key: 'level', label: '科目层级', type: 'number' },
+                { key: 'category', label: '科目类别', type: 'select', options: ['资产', '负债', '权益', '收入', '成本', '费用'] }
+            ],
+            // 线上-科目映射表
+            online_mapping: [
+                { key: 'platform', label: '源平台', type: 'select', options: INITIAL_DIM_DATA.platform.map(p=>p.name) },
+                { key: 'type', label: '源账单类型', type: 'select', options: BILL_TYPES },
+                { key: 'sourceField', label: '源字段名', type: 'text' },
+                { key: 'logic', label: '计算逻辑', type: 'select', options: CALC_LOGICS },
+                { key: 'targetTable', label: '目标事实表', type: 'select', options: TARGET_TABLES.map(t=>t.name) },
+                { key: 'subject', label: '财务科目', type: 'select', options: INITIAL_DIM_DATA.subject.map(s=>s.name) },
+                { key: 'condition', label: '过滤条件', type: 'text', placeholder: '如: value > 0' }
+            ],
+            // 线上-账单结构定义表 (新增)
+            online_structure: [
+                { key: 'checkId', label: '校验ID', type: 'text', disabled: true, placeholder: '自动生成' },
+                { key: 'platform', label: '平台名称', type: 'select', options: INITIAL_DIM_DATA.platform.map(p=>p.name) }, // 关联平台管理
+                { key: 'type', label: '账单类型', type: 'select', options: BILL_TYPES },
+                { key: 'colName', label: '列名', type: 'text' },
+                { key: 'colOrder', label: '列顺序', type: 'number' },
+                { key: 'valueType', label: '期望数值类型', type: 'select', options: ['文本', '数值', '布尔值'] },
+                { key: 'allowNull', label: '是否允许为空', type: 'select', options: ['是', '否'] },
+                { key: 'regex', label: '校验正则表达式', type: 'text' },
+                { key: 'status', label: '状态', type: 'select', options: ['启用', '停用'] }
+            ],
+            offline_main: [ 
+                 { key: 'dimId', label: '多维表ID', type: 'text' },
+                 { key: 'dataId', label: '数据表ID', type: 'text' },
+                 { key: 'date', label: '日期字段', type: 'text' },
+                 { key: 'amount', label: '报销金额字段', type: 'text' },
+                 { key: 'category', label: '支出类别字段', type: 'text' },
+                 { key: 'mapTable', label: '字段映射表', type: 'text' }
+            ],
+            offline_field: [ 
+                 { key: 'mapName', label: '映射集名称', type: 'text' },
+                 { key: 'sourceField', label: '源表字段名', type: 'text' },
+                 { key: 'standardDim', label: '中台标准维度', type: 'text' },
+                 { key: 'status', label: '状态', type: 'select', options: [true, false], render: v => v ? '启用' : '停用' }
+            ],
+            offline_subject: [
+                 { key: 'dictId', label: '字典ID', type: 'text' },
+                 { key: 'dictName', label: '字典名称', type: 'text' },
+                 { key: 'sourceValue', label: '源业务值', type: 'text' },
+                 { key: 'targetTable', label: '目标事实表', type: 'text' },
+                 { key: 'targetCode', label: '目标科目编码', type: 'text' }
+            ]
+        };
+
+        // --- 辅助组件定义 ---
+        const TabButton = ({ label, active, onClick }) => (
+            <button onClick={onClick} className={`px-6 py-3 text-sm transition-colors ${active ? 'active-tab' : 'inactive-tab'}`}>
+                {label}
+            </button>
+        );
+        
+        const SubTabButton = ({ label, active, onClick }) => (
+            <button onClick={onClick} className={`sub-tab-btn ${active ? 'sub-tab-active' : 'sub-tab-inactive'}`}>
+                {label}
+            </button>
+        );
+
+        const TableHeader = ({ cols }) => (
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold tracking-wider text-left sticky top-0 z-10 shadow-sm">
+                <tr>
+                    <th className="px-6 py-3 w-10"><input type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/></th>
+                    {cols.map((col, i) => <th key={i} className="px-6 py-3">{col}</th>)}
+                    <th className="px-6 py-3 text-right w-24">操作</th>
+                </tr>
+            </thead>
+        );
+
+        // --- 动态表单弹窗组件 ---
+        const DynamicModal = ({ isOpen, onClose, onSave, title, fields, initialData }) => {
+            const [formData, setFormData] = useState({});
+
+            useEffect(() => {
+                if (isOpen) {
+                    setFormData(initialData || {});
+                }
+            }, [isOpen, initialData]);
+
+            if (!isOpen) return null;
+
+            const handleChange = (key, value) => {
+                setFormData(prev => ({ ...prev, [key]: value }));
+                
+                // 特殊联动: 选择财务科目名称自动填充编码
+                if (key === 'subject') {
+                    const subj = INITIAL_DIM_DATA.subject.find(s => s.name === value);
+                    if (subj) {
+                        setFormData(prev => ({ ...prev, subject: value, code: subj.code }));
+                    }
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 transition-colors"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 max-h-[70vh] overflow-y-auto">
+                            <div className="grid grid-cols-1 gap-5">
+                                {fields.map(field => (
+                                    <div key={field.key}>
+                                        <label className="form-label">{field.label}</label>
+                                        {field.type === 'select' ? (
+                                            <select 
+                                                value={formData[field.key] || ''} 
+                                                onChange={e => handleChange(field.key, e.target.value)}
+                                                className="form-input bg-white"
+                                                disabled={field.disabled}
+                                            >
+                                                <option value="">请选择</option>
+                                                {field.options.map((opt, i) => {
+                                                    const val = typeof opt === 'object' ? opt.value : opt;
+                                                    const label = typeof opt === 'object' ? opt.label : opt;
+                                                    return <option key={i} value={val}>{label}</option>;
+                                                })}
+                                            </select>
+                                        ) : field.type === 'textarea' ? (
+                                            <textarea
+                                                value={formData[field.key] || ''}
+                                                onChange={e => handleChange(field.key, e.target.value)}
+                                                className="form-input min-h-[80px]"
+                                                placeholder={field.placeholder}
+                                            />
+                                        ) : (
+                                            <input 
+                                                type={field.type || 'text'}
+                                                value={formData[field.key] || ''}
+                                                onChange={e => handleChange(field.key, e.target.value)}
+                                                className="form-input"
+                                                placeholder={field.placeholder}
+                                                disabled={field.disabled}
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                            <button onClick={onClose} className="px-5 py-2.5 text-slate-600 text-sm font-medium hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 rounded-lg transition-all">取消</button>
+                            <button onClick={() => onSave(formData)} className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all">保存配置</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const TableRow = ({ children, onEdit, onDelete }) => (
+            <tr className="hover:bg-slate-50 transition-colors group">
+                <td className="px-6 py-4"><input type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/></td>
+                {children}
+                <td className="px-6 py-4 text-right flex justify-end gap-2">
+                    <button onClick={onEdit} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors" title="编辑"><Edit size={15}/></button>
+                    <button onClick={onDelete} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="删除"><Trash2 size={15}/></button>
+                </td>
+            </tr>
+        );
+
+        const StatusChip = ({ status }) => (
+            <span className={`px-2 py-1 rounded text-xs font-medium ${status === '启用' || status === '在职' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                {status}
+            </span>
+        );
+
+        const App = () => {
+            // Tabs State
+            const [activeTab, setActiveTab] = useState('dimension'); 
+            const [dimensionSubTab, setDimensionSubTab] = useState('customer'); 
+            const [offlineSubTab, setOfflineSubTab] = useState('main');
+            const [onlineSubTab, setOnlineSubTab] = useState('mapping'); 
+
+            // Data State
+            const [dimData, setDimData] = useState(INITIAL_DIM_DATA);
+            const [onlineRules, setOnlineRules] = useState(INITIAL_ONLINE_MAPPING_RULES); // Fixed: Use correct initial state
+            const [onlineStructure, setOnlineStructure] = useState(INITIAL_ONLINE_STRUCTURE_RULES);
+            
+            // Offline Data State
+            const [offlineMainData, setOfflineMainData] = useState(INITIAL_OFFLINE_MAIN); 
+            const [offlineFieldData, setOfflineFieldData] = useState(INITIAL_OFFLINE_FIELD);
+            const [offlineSubjectData, setOfflineSubjectData] = useState(INITIAL_OFFLINE_SUBJECT);
+
+            // Modal State
+            const [modal, setModal] = useState({ isOpen: false, title: '', fields: [], initialData: null, type: '' });
+
+            // Helper to open modal
+            const openModal = (type, data = null) => {
+                let fields = [];
+                let title = data ? '编辑配置' : '新增配置';
+
+                if (activeTab === 'dimension') {
+                    fields = FORM_SCHEMAS[dimensionSubTab];
+                    title = `${data ? '编辑' : '新增'}${document.querySelector('.sub-tab-active')?.innerText || '数据'}`;
+                } else if (activeTab === 'online') {
+                    if (onlineSubTab === 'mapping') fields = FORM_SCHEMAS['online_mapping'];
+                    if (onlineSubTab === 'structure') fields = FORM_SCHEMAS['online_structure'];
+                } else if (activeTab === 'offline') {
+                    if (offlineSubTab === 'main') fields = FORM_SCHEMAS['offline_main'];
+                    if (offlineSubTab === 'field') fields = FORM_SCHEMAS['offline_field'];
+                    if (offlineSubTab === 'subject') fields = FORM_SCHEMAS['offline_subject'];
+                }
+
+                setModal({ isOpen: true, title, fields, initialData: data, type });
+            };
+
+            const handleSave = (formData) => {
+                const isEdit = !!formData.id;
+                const newData = { ...formData, id: formData.id || Date.now() };
+
+                if (activeTab === 'dimension') {
+                    setDimData(prev => ({
+                        ...prev,
+                        [dimensionSubTab]: isEdit 
+                            ? prev[dimensionSubTab].map(item => item.id === newData.id ? newData : item)
+                            : [...prev[dimensionSubTab], newData]
+                    }));
+                } else if (activeTab === 'online') {
+                    if (onlineSubTab === 'mapping') {
+                        setOnlineRules(prev => isEdit ? prev.map(item => item.id === newData.id ? newData : item) : [...prev, newData]);
+                    } else {
+                        setOnlineStructure(prev => isEdit ? prev.map(item => item.id === newData.id ? newData : item) : [...prev, newData]);
+                    }
+                } else if (activeTab === 'offline') {
+                    if (offlineSubTab === 'main') setOfflineMainData(prev => isEdit ? prev.map(item => item.id === newData.id ? newData : item) : [...prev, newData]);
+                    if (offlineSubTab === 'field') setOfflineFieldData(prev => isEdit ? prev.map(item => item.id === newData.id ? newData : item) : [...prev, newData]);
+                    if (offlineSubTab === 'subject') setOfflineSubjectData(prev => isEdit ? prev.map(item => item.id === newData.id ? newData : item) : [...prev, newData]);
+                }
+                setModal({ ...modal, isOpen: false });
+            };
+
+            const handleDelete = (id) => {
+                if(!confirm('确定要删除吗？')) return;
+                if (activeTab === 'dimension') {
+                    setDimData(prev => ({...prev, [dimensionSubTab]: prev[dimensionSubTab].filter(i => i.id !== id)}));
+                } else if (activeTab === 'online') {
+                     if (onlineSubTab === 'mapping') setOnlineRules(prev => prev.filter(i => i.id !== id));
+                     else setOnlineStructure(prev => prev.filter(i => i.id !== id));
+                } else if (activeTab === 'offline') {
+                    if (offlineSubTab === 'main') setOfflineMainData(prev => prev.filter(i => i.id !== id));
+                    if (offlineSubTab === 'field') setOfflineFieldData(prev => prev.filter(i => i.id !== id));
+                    if (offlineSubTab === 'subject') setOfflineSubjectData(prev => prev.filter(i => i.id !== id));
+                }
+            };
+
+            return (
+                <div className="p-8 max-w-[1400px] mx-auto animate-fade-in">
+                    <div className="mb-8 flex justify-between items-end">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800">配置管理</h2>
+                            <p className="text-slate-500 text-sm mt-1">集中管理系统维度数据与业务规则映射</p>
+                        </div>
+                        <button onClick={() => openModal('add')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-2 text-sm font-medium">
+                            <Plus size={18} /> 新增配置
+                        </button>
+                    </div>
+
+                    <div className="flex border-b border-slate-200 mb-6">
+                        <TabButton label="维度数据管理" active={activeTab === 'dimension'} onClick={() => setActiveTab('dimension')} />
+                        <TabButton label="线上账单配置" active={activeTab === 'online'} onClick={() => setActiveTab('online')} />
+                        <TabButton label="线下账单配置" active={activeTab === 'offline'} onClick={() => setActiveTab('offline')} />
+                    </div>
+
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden min-h-[600px] flex flex-col">
+                        {/* 1. 维度数据管理 */}
+                        {activeTab === 'dimension' && (
+                            <>
+                                <div className="flex border-b border-slate-100 px-6 gap-2 bg-slate-50/50 overflow-x-auto">
+                                    {['customer', 'platform', 'store', 'department', 'employee', 'product', 'subject'].map(key => (
+                                        <SubTabButton 
+                                            key={key} 
+                                            label={{customer:'客户', platform:'平台', store:'店铺', department:'部门', employee:'员工', product:'商品', subject:'科目'}[key] + '管理'} 
+                                            active={dimensionSubTab === key} 
+                                            onClick={() => setDimensionSubTab(key)} 
+                                        />
+                                    ))}
+                                </div>
+                                <div className="flex-1 overflow-auto">
+                                    <table className="w-full text-sm">
+                                        {dimensionSubTab === 'customer' && <TableHeader cols={['ID', '客户名称', '联系人', '电话', '状态']} />}
+                                        {dimensionSubTab === 'platform' && <TableHeader cols={['平台名称', '编码', '类型', '状态']} />}
+                                        {dimensionSubTab === 'store' && <TableHeader cols={['店铺名称', '编码', '平台', '客户', '部门', '状态', '生效日期']} />}
+                                        {dimensionSubTab === 'department' && <TableHeader cols={['部门名称', '编码', '上级', '负责人', '财务属性', '状态']} />}
+                                        {dimensionSubTab === 'employee' && <TableHeader cols={['姓名', '工号', '部门', '岗位', '状态']} />}
+                                        {dimensionSubTab === 'product' && <TableHeader cols={['SKU', '名称', '成本', '品牌', '品类']} />}
+                                        {dimensionSubTab === 'subject' && <TableHeader cols={['编码', '名称', '上级', '层级', '类别']} />}
+                                        
+                                        <tbody className="divide-y divide-slate-100">
+                                            {dimData[dimensionSubTab].map(row => (
+                                                <TableRow key={row.id} onEdit={() => openModal('edit', row)} onDelete={() => handleDelete(row.id)}>
+                                                    {dimensionSubTab === 'customer' && <><td className="px-6 py-4 text-slate-500">{row.code}</td><td className="px-6 py-4 font-medium text-slate-800">{row.name}</td><td className="px-6 py-4">{row.contact}</td><td className="px-6 py-4 font-mono text-slate-500">{row.phone}</td><td className="px-6 py-4"><StatusChip status={row.status}/></td></>}
+                                                    {dimensionSubTab === 'platform' && <><td className="px-6 py-4 font-medium">{row.name}</td><td className="px-6 py-4 font-mono text-slate-500">{row.code}</td><td className="px-6 py-4"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs">{row.type}</span></td><td className="px-6 py-4"><StatusChip status={row.status}/></td></>}
+                                                    {dimensionSubTab === 'store' && <><td className="px-6 py-4 font-medium">{row.name}</td><td className="px-6 py-4 font-mono text-slate-500">{row.code}</td><td className="px-6 py-4">{row.platform}</td><td className="px-6 py-4">{row.customer}</td><td className="px-6 py-4 text-indigo-600">{row.department}</td><td className="px-6 py-4"><StatusChip status={row.status}/></td><td className="px-6 py-4 font-mono text-xs">{row.effectiveDate}</td></>}
+                                                    {dimensionSubTab === 'department' && <><td className="px-6 py-4 font-medium">{row.name}</td><td className="px-6 py-4 font-mono text-slate-500">{row.code}</td><td className="px-6 py-4">{row.parent}</td><td className="px-6 py-4">{row.manager}</td><td className="px-6 py-4 text-slate-500 bg-slate-100 rounded px-2 w-fit">{row.financeAttr}</td><td className="px-6 py-4"><StatusChip status={row.status}/></td></>}
+                                                    {dimensionSubTab === 'employee' && <><td className="px-6 py-4 font-medium">{row.name}</td><td className="px-6 py-4 font-mono text-slate-500">{row.code}</td><td className="px-6 py-4">{row.dept}</td><td className="px-6 py-4">{row.title}</td><td className="px-6 py-4"><StatusChip status={row.status}/></td></>}
+                                                    {dimensionSubTab === 'product' && <><td className="px-6 py-4 font-mono text-slate-500">{row.sku}</td><td className="px-6 py-4 font-medium">{row.name}</td><td className="px-6 py-4 font-mono">¥ {row.cost.toFixed(2)}</td><td className="px-6 py-4">{row.brand}</td><td className="px-6 py-4">{row.category}</td></>}
+                                                    {dimensionSubTab === 'subject' && <><td className="px-6 py-4 font-mono text-slate-500">{row.code}</td><td className="px-6 py-4 font-medium">{row.name}</td><td className="px-6 py-4">{row.parent}</td><td className="px-6 py-4"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-500">{row.level}</span></td><td className="px-6 py-4 text-indigo-600">{row.category}</td></>}
+                                                </TableRow>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
+
+                        {/* 2. 线上账单配置 */}
+                        {activeTab === 'online' && (
+                            <div className="flex flex-col h-full animate-fade-in">
+                                <div className="flex border-b border-slate-100 px-6 gap-8 bg-slate-50/50">
+                                    <SubTabButton label="科目映射表" active={onlineSubTab === 'mapping'} onClick={() => setOnlineSubTab('mapping')} />
+                                    <SubTabButton label="账单结构定义表" active={onlineSubTab === 'structure'} onClick={() => setOnlineSubTab('structure')} />
+                                </div>
+                                
+                                <div className="p-6 overflow-auto flex-1">
+                                    {onlineSubTab === 'mapping' && (
+                                        <table className="w-full text-sm">
+                                            <TableHeader cols={['源平台', '账单类型', '源字段名', '逻辑', '目标表', '财务科目', '科目编码', '条件']} />
+                                            <tbody className="divide-y divide-slate-100">
+                                                {onlineRules.map(row => (
+                                                    <TableRow key={row.id} onEdit={() => openModal('edit', row)} onDelete={() => handleDelete(row.id)}>
+                                                        <td className="px-6 py-4 font-medium">{row.platform}</td>
+                                                        <td className="px-6 py-4 text-slate-600">{row.type}</td>
+                                                        <td className="px-6 py-4 font-mono text-xs text-slate-500 bg-slate-50 p-1 rounded w-fit">{row.sourceField}</td>
+                                                        <td className="px-6 py-4"><span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-xs font-bold">{row.logic}</span></td>
+                                                        <td className="px-6 py-4 text-slate-600">{row.targetTable}</td>
+                                                        <td className="px-6 py-4 font-medium text-slate-700">{row.subject}</td>
+                                                        <td className="px-6 py-4 font-mono text-slate-500">{row.code}</td>
+                                                        <td className="px-6 py-4 font-mono text-xs text-amber-600">{row.condition}</td>
+                                                    </TableRow>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                    
+                                    {onlineSubTab === 'structure' && (
+                                        <table className="w-full text-sm">
+                                            <TableHeader cols={['校验ID', '平台', '账单类型', '列名', '顺序', '类型', '允许空', '正则校验', '状态']} />
+                                            <tbody className="divide-y divide-slate-100">
+                                                {onlineStructure.map(row => (
+                                                    <TableRow key={row.id} onEdit={() => openModal('edit', row)} onDelete={() => handleDelete(row.id)}>
+                                                        <td className="px-6 py-4 font-mono text-slate-500 text-xs">{row.checkId}</td>
+                                                        <td className="px-6 py-4 font-medium">{row.platform}</td>
+                                                        <td className="px-6 py-4 text-slate-600">{row.type}</td>
+                                                        <td className="px-6 py-4 font-medium">{row.colName}</td>
+                                                        <td className="px-6 py-4 text-center"><span className="bg-slate-100 px-2 rounded text-xs">{row.colOrder}</span></td>
+                                                        <td className="px-6 py-4 text-slate-600">{row.valueType}</td>
+                                                        <td className="px-6 py-4 text-slate-600">{row.allowNull}</td>
+                                                        <td className="px-6 py-4 font-mono text-xs text-slate-400 truncate max-w-[100px]" title={row.regex}>{row.regex}</td>
+                                                        <td className="px-6 py-4"><StatusChip status={row.status}/></td>
+                                                    </TableRow>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. 线下账单配置 */}
+                        {activeTab === 'offline' && (
+                            <div className="flex flex-col h-full">
+                                <div className="flex border-b border-slate-100 px-6 gap-8 bg-slate-50/50">
+                                    <SubTabButton label="主流程规则表" active={offlineSubTab === 'main'} onClick={() => setOfflineSubTab('main')} />
+                                    <SubTabButton label="字段映射表" active={offlineSubTab === 'field'} onClick={() => setOfflineSubTab('field')} />
+                                    <SubTabButton label="科目映射表" active={offlineSubTab === 'subject'} onClick={() => setOfflineSubTab('subject')} />
+                                </div>
+                                <div className="flex-1 overflow-auto p-0">
+                                    <table className="w-full text-sm">
+                                        {offlineSubTab === 'main' && (
+                                            <>
+                                                <TableHeader cols={['多维表ID', '数据表ID', '日期字段', '金额字段', '类别字段', '映射表']} />
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {offlineMainData.map(row => (
+                                                        <TableRow key={row.id} onEdit={() => openModal('edit', row)} onDelete={() => handleDelete(row.id)}>
+                                                            <td className="px-6 py-4 font-mono text-xs text-slate-400 truncate max-w-[100px]">{row.dimId || '-'}</td>
+                                                            <td className="px-6 py-4 font-mono text-xs text-slate-800">{row.dataId}</td>
+                                                            <td className="px-6 py-4 text-slate-600">{row.date}</td>
+                                                            <td className="px-6 py-4 text-slate-600">{row.amount}</td>
+                                                            <td className="px-6 py-4 text-slate-600">{row.category}</td>
+                                                            <td className="px-6 py-4 text-xs text-indigo-600">{row.mapTable}</td>
+                                                        </TableRow>
+                                                    ))}
+                                                </tbody>
+                                            </>
+                                        )}
+                                        {offlineSubTab === 'field' && (
+                                            <>
+                                                <TableHeader cols={['映射集名称', '源表字段', '中台标准维度', '状态']} />
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {offlineFieldData.map(row => (
+                                                        <TableRow key={row.id} onEdit={() => openModal('edit', row)} onDelete={() => handleDelete(row.id)}>
+                                                            <td className="px-6 py-4 font-medium text-slate-800">{row.mapName}</td>
+                                                            <td className="px-6 py-4 text-slate-600">{row.sourceField}</td>
+                                                            <td className="px-6 py-4 text-indigo-600 bg-indigo-50/50 w-fit px-2 rounded">{row.standardDim}</td>
+                                                            <td className="px-6 py-4 text-emerald-500"><Check size={16}/></td>
+                                                        </TableRow>
+                                                    ))}
+                                                </tbody>
+                                            </>
+                                        )}
+                                        {offlineSubTab === 'subject' && (
+                                            <>
+                                                <TableHeader cols={['字典ID', '字典名称', '源值', '目标表', '目标科目']} />
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {offlineSubjectData.map(row => (
+                                                        <TableRow key={row.id} onEdit={() => openModal('edit', row)} onDelete={() => handleDelete(row.id)}>
+                                                            <td className="px-6 py-4 font-mono text-slate-400 text-xs">{row.dictId}</td>
+                                                            <td className="px-6 py-4 font-medium">{row.dictName}</td>
+                                                            <td className="px-6 py-4 text-indigo-600 font-medium">{row.sourceValue}</td>
+                                                            <td className="px-6 py-4 font-mono text-slate-500">{row.targetTable}</td>
+                                                            <td className="px-6 py-4 font-mono text-slate-700 bg-slate-100 w-fit px-2 rounded">{row.targetCode}</td>
+                                                        </TableRow>
+                                                    ))}
+                                                </tbody>
+                                            </>
+                                        )}
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <DynamicModal 
+                        isOpen={modal.isOpen}
+                        title={modal.title}
+                        fields={modal.fields}
+                        initialData={modal.initialData}
+                        onClose={() => setModal({...modal, isOpen: false})}
+                        onSave={handleSave}
+                    />
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
