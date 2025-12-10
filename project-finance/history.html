@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史记录</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { animation: { 'fade-in': 'fadeIn 0.5s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } } } }
+        }
+    </script>
+    <style>::-webkit-scrollbar { width: 0px; background: transparent; } body { overflow-x: hidden; }</style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const HISTORY_DATA = [
+            { id: 101, period: '2025.09', client: '橘子', platform: '淘宝', shop: '淘宝A店', date: '2025-10-01 14:30', user: '家乐' },
+            { id: 102, period: '2025.09', client: '苹果', platform: '抖音', shop: '抖音A店', date: '2025-10-02 09:15', user: '家乐' },
+            { id: 103, period: '2025.09', client: '香蕉', platform: '快手', shop: '快手B店', date: '2025-10-02 11:20', user: '系统自动' },
+            { id: 104, period: '2025.08', client: '橘子', platform: '淘宝', shop: '淘宝C店', date: '2025-09-05 16:45', user: '家乐' },
+        ];
+        
+        const PlatformBadge = ({platform}) => <div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${platform==='淘宝'?'bg-orange-500':platform==='抖音'?'bg-slate-800':platform==='快手'?'bg-red-500':'bg-blue-500'}`}></span><span className="text-slate-600">{platform}</span></div>;
+
+        const App = () => (
+                <div className="p-6 md:p-8 lg:p-10 max-w-7xl mx-auto animate-fade-in">
+                <div className="mb-8"><h2 className="text-2xl font-bold text-slate-800">历史记录</h2><p className="text-slate-500 text-sm mt-1">查看已归档的任务记录</p></div>
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50/80 text-slate-500 font-semibold"><tr><th className="px-8 py-5">完成时间</th><th className="px-6 py-5">账期</th><th className="px-6 py-5">客户</th><th className="px-6 py-5">平台</th><th className="px-6 py-5">店铺</th><th className="px-6 py-5">操作人</th><th className="px-8 py-5 text-right">状态</th></tr></thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {HISTORY_DATA.map(row => (
+                                <tr key={row.id} className="hover:bg-slate-50">
+                                    <td className="px-8 py-5 text-slate-500">{row.date}</td>
+                                    <td className="px-6 py-5 font-medium text-slate-700">{row.period}</td>
+                                    <td className="px-6 py-5 text-slate-600">{row.client}</td>
+                                    <td className="px-6 py-5"><PlatformBadge platform={row.platform}/></td>
+                                    <td className="px-6 py-5 text-slate-600">{row.shop}</td>
+                                    <td className="px-6 py-5 text-slate-600 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs text-slate-600">{row.user[0]}</span>{row.user}</td>
+                                    <td className="px-8 py-5 text-right"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">已归档</span></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
