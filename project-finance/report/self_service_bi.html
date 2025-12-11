@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>策略中台 - 自助报表配置器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- 引入 Lodash 用于数据处理 -->
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+    
+    <!-- 引入外部数据文件 -->
+    <script src="../data.js"></script>
+
+    <style>
+        /* Tableau 风格优化 */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f5f5f5; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        
+        .drag-item { 
+            cursor: grab; 
+            transition: all 0.15s ease; 
+            user-select: none;
+        }
+        .drag-item:active { cursor: grabbing; transform: scale(0.98); }
+        
+        .drop-zone {
+            min-height: 44px;
+            transition: all 0.2s;
+        }
+        .drop-zone.drag-over {
+            background-color: #eff6ff; /* blue-50 */
+            border-color: #3b82f6; /* blue-500 */
+            border-style: solid;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 财务数字样式 */
+        .financial-num {
+            font-family: 'Consolas', 'Monaco', monospace;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .negative { color: #dc2626; } /* Tableau 红 */
+
+        /* 标签样式优化 */
+        .config-tag {
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(2px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 表格样式 - Tableau 风格 */
+        .tableau-table th {
+            background-color: #f9fafb;
+            color: #4b5563;
+            font-weight: 600;
+            border-bottom: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
+            white-space: nowrap;
+            padding: 8px 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        .tableau-table td {
+            border-bottom: 1px solid #f3f4f6;
+            border-right: 1px solid #f3f4f6;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #374151;
+            white-space: nowrap;
+        }
+        .tableau-table tr:hover td {
+            background-color: #f3f4f6;
+        }
+        /* 维度列背景微调 */
+        .tableau-table td.dim-cell {
+            background-color: #fff;
+            font-weight: 500;
+            color: #111827;
+        }
+        /* 数据更新闪烁 */
+        @keyframes flashUpdate {
+            0% { background-color: transparent; }
+            30% { background-color: #e0e7ff; }
+            100% { background-color: transparent; }
+        }
+        .data-updated { animation: flashUpdate 0.6s ease-out; }
+    </style>
+</head>
+<body class="bg-white h-screen flex flex-col overflow-hidden text-sm text-gray-700">
+
+    <!-- 顶栏 -->
+    <header class="bg-white border-b border-gray-200 h-12 flex items-center justify-between px-4 shrink-0 z-20">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 text-indigo-700 font-bold text-lg tracking-tight">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>DataInsight</span>
+            </div>
+            <div class="h-5 w-px bg-gray-300 mx-2"></div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400 text-xs uppercase font-semibold">Report:</span>
+                <input type="text" value="2025年Q3-各客户店铺经营利润分析" class="font-medium text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 transition-colors w-80 text-sm">
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-indigo-600 rounded border border-transparent hover:border-gray-200 transition-colors text-xs font-medium">
+                <i class="fa-solid fa-file-excel text-green-600"></i> 导出Excel
+            </button>
+            <button class="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow-sm transition-colors text-xs font-medium">
+                <i class="fa-solid fa-save"></i> 保存
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- 左侧栏：语义层资产 -->
+        <aside class="w-60 bg-gray-50 border-r border-gray-200 flex flex-col shrink-0 select-none">
+            <!-- 数据集头部 -->
+            <div class="p-3 border-b border-gray-200 bg-white">
+                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Data Source</label>
+                <div class="flex items-center gap-2 text-gray-700 font-medium text-xs truncate" title="ads_shop_profit_daily">
+                    <i class="fa-solid fa-database text-indigo-500"></i>
+                    ads_shop_profit_daily
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-3 py-3 space-y-5">
+                <!-- 维度 -->
+                <div>
+                    <div class="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                        <span>维度 (Dimensions)</span>
+                        <i class="fa-solid fa-search hover:text-gray-600 cursor-pointer"></i>
+                    </div>
+                    <div class="space-y-1">
+                        <!-- 可拖拽项 -->
+                        <div class="drag-item group flex items-center gap-2 px-2 py-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-xs text-gray-600 cursor-grab" draggable="true" data-type="dim" data-key="customer" data-icon="fa-user-tie">
+                            <i class="fa-solid fa-user-tie text-blue-400 w-4 text-center"></i> 客户
+                        </div>
+                        <div class="drag-item group flex items-center gap-2 px-2 py-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-xs text-gray-600 cursor-grab" draggable="true" data-type="dim" data-key="platform" data-icon="fa-globe">
+                            <i class="fa-solid fa-globe text-blue-400 w-4 text-center"></i> 平台
+                        </div>
+                        <div class="drag-item group flex items-center gap-2 px-2 py-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-xs text-gray-600 cursor-grab" draggable="true" data-type="dim" data-key="shopName" data-icon="fa-store">
+                            <i class="fa-solid fa-store text-blue-400 w-4 text-center"></i> 店铺
+                        </div>
+                        <div class="drag-item group flex items-center gap-2 px-2 py-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-xs text-gray-600 cursor-grab" draggable="true" data-type="dim" data-key="month" data-icon="fa-calendar">
+                            <i class="fa-solid fa-calendar text-blue-400 w-4 text-center"></i> 日期
+                        </div>
+                        <div class="drag-item group flex items-center gap-2 px-2 py-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-xs text-gray-600 cursor-grab" draggable="true" data-type="dim" data-key="subject" data-icon="fa-tag">
+                            <i class="fa-solid fa-tag text-blue-400 w-4 text-center"></i> 科目
+                        </div>
+                    </div>
+                </div>
+
+                <div class="h-px bg-gray-200 mx-1"></div>
+
+                <!-- 指标 -->
+                <div>
+                    <div class="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                        <span>度量 (Measures)</span>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="drag-item group flex items-center gap-2 px-2 py-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-xs text-gray-600 cursor-grab" draggable="true" data-type="metric" data-key="profit" data-icon="fa-sack-dollar">
+                            <i class="fa-solid fa-sack-dollar text-green-500 w-4 text-center"></i> 经营利润
+                        </div>
+                        <div class="drag-item group flex items-center gap-2 px-2 py-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-xs text-gray-600 cursor-grab" draggable="true" data-type="metric" data-key="gmv" data-icon="fa-cart-shopping">
+                            <i class="fa-solid fa-cart-shopping text-green-500 w-4 text-center"></i> GMV
+                        </div>
+                        <div class="drag-item group flex items-center gap-2 px-2 py-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-xs text-gray-600 cursor-grab" draggable="true" data-type="metric" data-key="cost" data-icon="fa-money-bill-wave">
+                            <i class="fa-solid fa-money-bill-wave text-green-500 w-4 text-center"></i> 交易成本
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 中间：配置与预览区 -->
+        <main class="flex-1 flex flex-col min-w-0 bg-white">
+            
+            <!-- 核心配置区 (Shelf) -->
+            <div class="bg-white border-b border-gray-200 px-4 py-3 shadow-[0_2px_4px_rgba(0,0,0,0.02)] z-10">
+                <div class="grid grid-cols-12 gap-3">
+                    
+                    <!-- 筛选器区域 -->
+                    <div class="col-span-12 flex items-center relative mb-1">
+                        <span class="text-[10px] font-bold text-gray-400 w-16 text-right mr-3 uppercase">筛选</span>
+                        <div id="zone-filter" class="drop-zone flex-1 border border-gray-200 rounded bg-white p-1 flex flex-wrap gap-2 items-center min-h-[36px]">
+                            <!-- 默认筛选器 -->
+                            <div class="relative group cursor-pointer" onclick="toggleDateFilter(this)">
+                                <div class="flex items-center gap-1 bg-gray-100 border border-gray-200 rounded px-2 py-1 text-xs hover:bg-gray-200 hover:border-gray-300 transition-all">
+                                    <span class="text-gray-500 font-medium">日期:</span>
+                                    <span class="text-indigo-600 font-bold" id="currentDateFilter">全部月份</span>
+                                    <i class="fa-solid fa-caret-down ml-1 text-gray-400 text-[10px]"></i>
+                                </div>
+                                <!-- 下拉选单 -->
+                                <div id="dateFilterDropdown" class="hidden absolute top-full left-0 mt-1 w-48 bg-white rounded shadow-lg border border-gray-200 z-50 animate-fade-in max-h-64 overflow-y-auto">
+                                    <div class="py-1">
+                                        <a href="#" class="block px-4 py-2 text-xs text-indigo-700 bg-indigo-50 font-bold" onclick="selectDate(event, 'all', '全部月份')">全部月份</a>
+                                        <div class="border-t border-gray-100 my-1"></div>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, '2025-01', '2025-01')">2025-01</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, '2025-02', '2025-02')">2025-02</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, '2025-03', '2025-03')">2025-03</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, '2025-04', '2025-04')">2025-04</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, '2025-05', '2025-05')">2025-05</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, '2025-06', '2025-06')">2025-06</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, '2025-07', '2025-07')">2025-07</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, '2025-08', '2025-08')">2025-08</a>
+                                        <div class="border-t border-gray-100 my-1"></div>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, 'Q1', 'Q1 (01~03)')">Q1 (01~03)</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, 'Q2', 'Q2 (04~06)')">Q2 (04~06)</a>
+                                        <a href="#" class="block px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50" onclick="selectDate(event, 'Q3', 'Q3 (07~09)')">Q3 (07~09)</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 动态维度筛选器将在这里添加 -->
+                            <div id="dynamicFilters" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                    
+
+
+                    <!-- 行/列/值 配置区 -->
+                    <div class="col-span-12 flex flex-col gap-2">
+                        <!-- 列 -->
+                        <div class="flex items-start">
+                            <span class="text-[10px] font-bold text-gray-400 w-16 text-right mr-3 uppercase mt-2.5">列</span>
+                            <div id="zone-cols" class="drop-zone flex-1 border border-gray-200 rounded bg-white p-1 flex flex-wrap gap-1.5 min-h-[36px]">
+                                <!-- 默认列: 日期 -->
+                                <div class="config-tag flex items-center justify-between bg-blue-100 text-blue-800 border border-blue-200 rounded px-2 py-1 text-xs shadow-sm cursor-move group select-none" data-key="month" data-type="dim">
+                                    <div class="flex items-center gap-1.5"><i class="fa-solid fa-calendar text-blue-500 opacity-70"></i><span>日期</span></div>
+                                    <i class="fa-solid fa-xmark text-blue-400 hover:text-red-500 cursor-pointer ml-2 opacity-0 group-hover:opacity-100 transition-opacity" onclick="removeItem(this)"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 行 -->
+                        <div class="flex items-start">
+                            <span class="text-[10px] font-bold text-gray-400 w-16 text-right mr-3 uppercase mt-2.5">行</span>
+                            <div id="zone-rows" class="drop-zone flex-1 border border-gray-200 rounded bg-white p-1 flex flex-wrap gap-1.5 min-h-[36px]">
+                                <!-- 默认行: 客户 -->
+                                 <div class="config-tag flex items-center justify-between bg-blue-100 text-blue-800 border border-blue-200 rounded px-2 py-1 text-xs shadow-sm cursor-move group select-none" data-key="customer" data-type="dim">
+                                    <div class="flex items-center gap-1.5"><i class="fa-solid fa-user-tie text-blue-500 opacity-70"></i><span>客户</span></div>
+                                    <i class="fa-solid fa-xmark text-blue-400 hover:text-red-500 cursor-pointer ml-2 opacity-0 group-hover:opacity-100 transition-opacity" onclick="removeItem(this)"></i>
+                                </div>
+                                <!-- 默认行: 平台 -->
+                                <div class="config-tag flex items-center justify-between bg-blue-100 text-blue-800 border border-blue-200 rounded px-2 py-1 text-xs shadow-sm cursor-move group select-none" data-key="platform" data-type="dim">
+                                    <div class="flex items-center gap-1.5"><i class="fa-solid fa-globe text-blue-500 opacity-70"></i><span>平台</span></div>
+                                    <i class="fa-solid fa-xmark text-blue-400 hover:text-red-500 cursor-pointer ml-2 opacity-0 group-hover:opacity-100 transition-opacity" onclick="removeItem(this)"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 度量 -->
+                        <div class="flex items-start">
+                            <span class="text-[10px] font-bold text-gray-400 w-16 text-right mr-3 uppercase mt-2.5">度量</span>
+                            <div id="zone-values" class="drop-zone flex-1 border border-gray-200 rounded bg-white p-1 flex flex-wrap gap-1.5 min-h-[36px]">
+                                <!-- 默认值: 利润 (带排序功能) -->
+                                <div class="config-tag flex items-center justify-between bg-green-100 text-green-800 border border-green-200 rounded px-2 py-1 text-xs shadow-sm cursor-move group select-none" data-key="profit" data-type="metric">
+                                    <div class="flex items-center gap-1.5">
+                                        <i class="fa-solid fa-sigma text-green-600 opacity-70"></i>
+                                        <span>经营利润</span>
+                                        <i class="fa-solid fa-sort sort-icon text-green-500 hover:text-green-700 cursor-pointer ml-1" onclick="toggleMetricSort(event, 'profit')" title="点击排序"></i>
+                                    </div>
+                                    <i class="fa-solid fa-xmark text-green-600 hover:text-red-500 cursor-pointer ml-2 opacity-0 group-hover:opacity-100 transition-opacity" onclick="removeItem(this)"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据预览区 (Canvas) -->
+            <div class="flex-1 flex flex-col bg-gray-50 overflow-hidden relative">
+                <!-- 工具栏 -->
+                <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white shrink-0">
+                    <h3 class="font-bold text-gray-700 text-xs uppercase tracking-wide">Sheet 1</h3>
+                    <div class="flex items-center gap-3 text-xs">
+                         <div id="loadingIndicator" class="hidden items-center text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                            <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> 处理中...
+                        </div>
+                        <div class="text-gray-400 text-[10px]">
+                            <span id="rowCount">0</span> 行 <span id="colCount">0</span> 列
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 表格容器 -->
+                <div class="flex-1 overflow-auto p-4" id="tableContainer">
+                    <!-- 动态内容 -->
+                </div>
+            </div>
+            
+            <!-- 状态栏 -->
+            <div class="h-6 bg-indigo-900 border-t border-indigo-800 flex items-center justify-between px-3 text-[10px] text-indigo-200">
+                <div><i class="fa-solid fa-server mr-1"></i> Live Connection</div>
+                <div id="statusText">Ready</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 逻辑脚本 -->
+    <script>
+        // --- 1. 数据加载与初始化 ---
+        let rawData = [];
+        
+        // 尝试从 window.MOCK_DATA 加载，如果文件未就绪则使用空数组防止报错
+        if (window.MOCK_DATA) {
+            rawData = window.MOCK_DATA;
+        } else {
+            console.error("Data source not found. Please ensure data.js is loaded.");
+            document.getElementById('tableContainer').innerHTML = '<div class="text-red-500 p-4">错误：无法加载 data.js 数据源。请确保 data.js 与本 HTML 文件在同一目录下。</div>';
+        }
+
+        const labelMap = {
+            customer: '客户',
+            platform: '平台',
+            shopName: '店铺',
+            month: '日期',
+            subject: '科目',
+            profit: '经营利润',
+            gmv: 'GMV',
+            cost: '交易成本'
+        };
+
+        // --- 2. 状态管理 ---
+        let currentConfig = {
+            rows: ['customer', 'platform'], 
+            cols: ['month'],
+            values: ['profit'],
+            filters: {},  // 维度筛选器 { dimension: [selectedValues] }
+            sortBy: { metric: null, direction: 'desc' }  // 排序配置
+        };
+        let currentFilterDate = 'all';
+        
+        // 获取维度的唯一值
+        function getUniqueValues(dimension) {
+            const values = [...new Set(rawData.map(item => item[dimension]))];
+            return values.sort();
+        }
+
+        // --- 3. 拖拽逻辑 ---
+        const draggables = document.querySelectorAll('.drag-item');
+        const dropZones = document.querySelectorAll('.drop-zone');
+
+        draggables.forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('type', item.dataset.type);
+                e.dataTransfer.setData('key', item.dataset.key);
+                e.dataTransfer.setData('text', item.innerText.trim());
+                e.dataTransfer.setData('icon', item.dataset.icon);
+                item.classList.add('opacity-50');
+            });
+            item.addEventListener('dragend', () => {
+                document.querySelectorAll('.drag-item').forEach(i => i.classList.remove('opacity-50'));
+                dropZones.forEach(z => z.classList.remove('drag-over'));
+            });
+        });
+
+        dropZones.forEach(zone => {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('drag-over');
+            });
+            zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                
+                const type = e.dataTransfer.getData('type');
+                const key = e.dataTransfer.getData('key');
+                const text = e.dataTransfer.getData('text');
+                const icon = e.dataTransfer.getData('icon');
+                const zoneId = zone.id;
+
+                // 筛选区域特殊处理 - 只接受维度
+                if (zoneId === 'zone-filter') {
+                    if (type !== 'dim') {
+                        return alert('筛选区域只能放置【维度】');
+                    }
+                    // 防止重复添加同一维度筛选器
+                    if (document.querySelector(`#dynamicFilters [data-filter-key="${key}"]`)) {
+                        return alert('该维度筛选器已存在');
+                    }
+                    addDimensionFilter(key, text, icon);
+                    return;
+                }
+
+                // 核心约束逻辑
+                if ((zoneId === 'zone-rows' || zoneId === 'zone-cols') && type !== 'dim') {
+                    return alert('维度只能放置在【行】或【列】区域');
+                }
+                if (zoneId === 'zone-values' && type !== 'metric') {
+                    return alert('数值区域只能放置【核心指标】');
+                }
+
+                // 防重复添加
+                if (!document.querySelector(`#${zoneId} [data-key="${key}"]`)) {
+                    addTagToZone(zone, key, text, icon, type);
+                    updateConfigAndRender();
+                }
+            });
+        });
+        
+        // 添加维度筛选器
+        function addDimensionFilter(key, text, icon) {
+            const container = document.getElementById('dynamicFilters');
+            const uniqueValues = getUniqueValues(key);
+            
+            // 初始化筛选状态为全选
+            currentConfig.filters[key] = [...uniqueValues];
+            
+            const filterHtml = `
+                <div class="relative group cursor-pointer" data-filter-key="${key}" onclick="toggleDimFilter(event, '${key}')">
+                    <div class="flex items-center gap-1 bg-purple-100 border border-purple-200 rounded px-2 py-1 text-xs hover:bg-purple-200 hover:border-purple-300 transition-all">
+                        <i class="fa-solid ${icon} text-purple-500"></i>
+                        <span class="text-gray-600 font-medium">${text}:</span>
+                        <span class="text-purple-700 font-bold filter-display-${key}">全部</span>
+                        <i class="fa-solid fa-caret-down ml-1 text-purple-400 text-[10px]"></i>
+                        <i class="fa-solid fa-xmark text-purple-400 hover:text-red-500 cursor-pointer ml-1" onclick="removeDimFilter(event, '${key}')"></i>
+                    </div>
+                    <!-- 下拉选单 -->
+                    <div id="dimFilterDropdown-${key}" class="hidden absolute top-full left-0 mt-1 w-56 bg-white rounded shadow-lg border border-gray-200 z-50 max-h-64 overflow-y-auto">
+                        <div class="py-1">
+                            <div class="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                                <label class="flex items-center gap-2 text-xs cursor-pointer">
+                                    <input type="checkbox" checked onchange="toggleAllDimValues('${key}', this.checked)" class="rounded text-purple-600">
+                                    <span class="font-medium">全选</span>
+                                </label>
+                            </div>
+                            <div class="py-1 max-h-48 overflow-y-auto">
+                                ${uniqueValues.map(val => `
+                                    <label class="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-purple-50 cursor-pointer">
+                                        <input type="checkbox" checked value="${val}" onchange="toggleDimValue('${key}', '${val}', this.checked)" class="rounded text-purple-600 dim-checkbox-${key}">
+                                        <span>${val}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', filterHtml);
+        }
+        
+        // 切换维度筛选器下拉
+        window.toggleDimFilter = function(e, key) {
+            if (e.target.classList.contains('fa-xmark')) return;
+            e.stopPropagation();
+            
+            // 关闭其他下拉
+            document.querySelectorAll('[id^="dimFilterDropdown-"]').forEach(dd => {
+                if (dd.id !== `dimFilterDropdown-${key}`) dd.classList.add('hidden');
+            });
+            
+            const dropdown = document.getElementById(`dimFilterDropdown-${key}`);
+            dropdown.classList.toggle('hidden');
+        }
+        
+        // 移除维度筛选器
+        window.removeDimFilter = function(e, key) {
+            e.stopPropagation();
+            delete currentConfig.filters[key];
+            document.querySelector(`[data-filter-key="${key}"]`).remove();
+            renderTable();
+        }
+        
+        // 切换单个值
+        window.toggleDimValue = function(key, value, checked) {
+            if (checked) {
+                if (!currentConfig.filters[key].includes(value)) {
+                    currentConfig.filters[key].push(value);
+                }
+            } else {
+                currentConfig.filters[key] = currentConfig.filters[key].filter(v => v !== value);
+            }
+            updateFilterDisplay(key);
+            renderTable();
+        }
+        
+        // 全选/取消全选
+        window.toggleAllDimValues = function(key, checked) {
+            const checkboxes = document.querySelectorAll(`.dim-checkbox-${key}`);
+            checkboxes.forEach(cb => cb.checked = checked);
+            
+            if (checked) {
+                currentConfig.filters[key] = getUniqueValues(key);
+            } else {
+                currentConfig.filters[key] = [];
+            }
+            updateFilterDisplay(key);
+            renderTable();
+        }
+        
+        // 更新筛选器显示文本
+        function updateFilterDisplay(key) {
+            const display = document.querySelector(`.filter-display-${key}`);
+            const allValues = getUniqueValues(key);
+            const selected = currentConfig.filters[key];
+            
+            if (selected.length === 0) {
+                display.textContent = '无';
+            } else if (selected.length === allValues.length) {
+                display.textContent = '全部';
+            } else if (selected.length <= 2) {
+                display.textContent = selected.join(', ');
+            } else {
+                display.textContent = `${selected.length}项`;
+            }
+        }
+
+        function addTagToZone(zone, key, text, icon, type) {
+            const isDim = type === 'dim';
+            const bgClass = isDim ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-green-100 text-green-800 border-green-200';
+            const iconColor = isDim ? 'text-blue-500' : 'text-green-600';
+            const hoverColor = isDim ? 'text-blue-400' : 'text-green-600';
+            
+            // 度量标签带排序图标
+            const sortIcon = !isDim ? `<i class="fa-solid fa-sort sort-icon text-green-500 hover:text-green-700 cursor-pointer ml-1" onclick="toggleMetricSort(event, '${key}')" title="点击排序"></i>` : '';
+            
+            const html = `
+                <div class="config-tag flex items-center justify-between ${bgClass} border rounded px-2 py-1 text-xs shadow-sm cursor-move animate-fade-in group select-none" data-key="${key}" data-type="${type}">
+                    <div class="flex items-center gap-1.5"><i class="fa-solid ${icon} ${iconColor} opacity-70"></i><span>${text}</span>${sortIcon}</div>
+                    <i class="fa-solid fa-xmark ${hoverColor} hover:text-red-500 cursor-pointer ml-2 opacity-0 group-hover:opacity-100 transition-opacity" onclick="removeItem(this)"></i>
+                </div>
+            `;
+            zone.insertAdjacentHTML('beforeend', html);
+        }
+
+        // --- 4. 移除与交互逻辑 ---
+        window.removeItem = function(el) {
+            el.closest('.config-tag').remove();
+            updateConfigAndRender();
+        }
+
+        function updateConfigAndRender() {
+            currentConfig.rows = Array.from(document.querySelectorAll('#zone-rows .config-tag')).map(el => el.dataset.key);
+            currentConfig.cols = Array.from(document.querySelectorAll('#zone-cols .config-tag')).map(el => el.dataset.key);
+            currentConfig.values = Array.from(document.querySelectorAll('#zone-values .config-tag')).map(el => el.dataset.key);
+            
+            // 更新排序下拉选项
+            // 如果当前排序指标不在列表中，重置
+            if (currentConfig.sortBy.metric && !currentConfig.values.includes(currentConfig.sortBy.metric)) {
+                currentConfig.sortBy.metric = null;
+            }
+            updateSortIcons();
+            renderTable();
+        }
+        
+        // 点击度量标签上的排序图标
+        window.toggleMetricSort = function(e, metricKey) {
+            e.stopPropagation();
+            
+            if (currentConfig.sortBy.metric === metricKey) {
+                // 同一指标：切换排序方向，或取消排序
+                if (currentConfig.sortBy.direction === 'desc') {
+                    currentConfig.sortBy.direction = 'asc';
+                } else {
+                    // 已经是升序，再点击取消排序
+                    currentConfig.sortBy.metric = null;
+                    currentConfig.sortBy.direction = 'desc';
+                }
+            } else {
+                // 不同指标：设置为该指标降序
+                currentConfig.sortBy.metric = metricKey;
+                currentConfig.sortBy.direction = 'desc';
+            }
+            
+            updateSortIcons();
+            renderTable();
+        }
+        
+        // 更新排序图标显示
+        function updateSortIcons() {
+            // 重置所有排序图标
+            document.querySelectorAll('#zone-values .sort-icon').forEach(icon => {
+                icon.className = 'fa-solid fa-sort sort-icon text-green-500 hover:text-green-700 cursor-pointer ml-1';
+                icon.title = '点击排序';
+            });
+            
+            // 设置当前排序指标的图标
+            if (currentConfig.sortBy.metric) {
+                const activeTag = document.querySelector(`#zone-values [data-key="${currentConfig.sortBy.metric}"] .sort-icon`);
+                if (activeTag) {
+                    if (currentConfig.sortBy.direction === 'desc') {
+                        activeTag.className = 'fa-solid fa-sort-down sort-icon text-indigo-600 cursor-pointer ml-1';
+                        activeTag.title = '降序 (点击切换升序)';
+                    } else {
+                        activeTag.className = 'fa-solid fa-sort-up sort-icon text-indigo-600 cursor-pointer ml-1';
+                        activeTag.title = '升序 (点击取消排序)';
+                    }
+                }
+            }
+        }
+
+        // --- 5. 动态透视表引擎 (Dynamic Pivot Engine) ---
+        // 使用 Lodash 进行数据处理
+        function renderTable() {
+            const container = document.getElementById('tableContainer');
+            const indicator = document.getElementById('loadingIndicator');
+            
+            indicator.classList.remove('hidden');
+            indicator.classList.add('flex');
+            container.style.opacity = '0.5';
+
+            // 模拟计算延迟
+            setTimeout(() => {
+                const rows = currentConfig.rows;
+                const cols = currentConfig.cols;
+                const metrics = currentConfig.values;
+                
+                if (metrics.length === 0) {
+                    container.innerHTML = '<div class="h-full flex items-center justify-center text-gray-400 flex-col"><i class="fa-solid fa-chart-simple text-4xl mb-2 text-gray-300"></i><span>请拖入数值指标以生成报表</span></div>';
+                    finishRender(); return;
+                }
+
+                // 1. 筛选数据 - 日期筛选
+                let filteredData = rawData;
+                if (currentFilterDate === 'Q1') {
+                    filteredData = rawData.filter(item => ['2025-01', '2025-02', '2025-03'].includes(item.month));
+                } else if (currentFilterDate === 'Q2') {
+                    filteredData = rawData.filter(item => ['2025-04', '2025-05', '2025-06'].includes(item.month));
+                } else if (currentFilterDate === 'Q3') {
+                    filteredData = rawData.filter(item => ['2025-07', '2025-08', '2025-09'].includes(item.month));
+                } else if (currentFilterDate !== 'all') {
+                    filteredData = rawData.filter(item => item.month === currentFilterDate);
+                }
+                
+                // 1.1 应用维度筛选器
+                Object.keys(currentConfig.filters).forEach(dimKey => {
+                    const selectedValues = currentConfig.filters[dimKey];
+                    if (selectedValues && selectedValues.length > 0) {
+                        filteredData = filteredData.filter(item => selectedValues.includes(item[dimKey]));
+                    }
+                });
+
+                if(filteredData.length === 0) {
+                     container.innerHTML = '<div class="h-full flex items-center justify-center text-gray-400">暂无数据</div>';
+                     finishRender(); return;
+                }
+
+                // 2. 提取列头组合 (Column Combinations)
+                let colCombinations = [];
+                if (cols.length > 0) {
+                    // 使用 reduce 和 map 提取唯一列组合
+                    const comboMap = {};
+                    filteredData.forEach(item => {
+                        const key = cols.map(c => item[c]).join('||');
+                        if(!comboMap[key]) {
+                            comboMap[key] = {
+                                key: key,
+                                labels: cols.map(c => item[c])
+                            };
+                        }
+                    });
+                    // 排序
+                    colCombinations = Object.values(comboMap).sort((a,b) => a.key.localeCompare(b.key));
+                } else {
+                    colCombinations = [{ key: 'all', labels: [] }];
+                }
+
+                // 3. 数据聚合 (Pivot)
+                const pivotedData = {};
+                filteredData.forEach(item => {
+                    // 行键
+                    const rowKey = rows.length > 0 ? rows.map(r => item[r]).join('||') : 'Grand Total';
+                    // 列键
+                    const colKey = cols.length > 0 ? cols.map(c => item[c]).join('||') : 'all';
+                    
+                    if (!pivotedData[rowKey]) {
+                        pivotedData[rowKey] = { meta: {}, values: {} };
+                        rows.forEach(r => pivotedData[rowKey].meta[r] = item[r]);
+                    }
+                    if (!pivotedData[rowKey].values[colKey]) {
+                        pivotedData[rowKey].values[colKey] = {};
+                        metrics.forEach(m => pivotedData[rowKey].values[colKey][m] = 0);
+                    }
+                    
+                    metrics.forEach(m => {
+                        pivotedData[rowKey].values[colKey][m] += (item[m] || 0);
+                    });
+                });
+
+                // 4. 生成 HTML
+                let thead = `<thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">`;
+                
+                // 表头第一行
+                thead += `<tr>`;
+                rows.forEach((r, idx) => {
+                    const style = `left: ${idx * 100}px; z-index: 30;`;
+                    // 如果有列维度，行头需要占两行(或更多)
+                    const rowSpan = cols.length > 0 ? 2 : 1;
+                    thead += `<th rowspan="${rowSpan}" class="bg-gray-50 sticky border-r border-b text-left align-bottom pb-2" style="${style}">${labelMap[r]}</th>`;
+                });
+
+                if (cols.length > 0) {
+                    colCombinations.forEach(combo => {
+                         thead += `<th colspan="${metrics.length}" class="text-center border-b border-r bg-gray-50 text-gray-600 py-1">${combo.labels.join(' / ')}</th>`;
+                    });
+                    thead += `</tr><tr>`;
+                    colCombinations.forEach(() => {
+                        metrics.forEach(m => {
+                             thead += `<th class="text-right border-b border-r bg-white text-gray-500 py-1 font-normal min-w-[90px]">${labelMap[m]}</th>`;
+                        });
+                    });
+                    thead += `</tr>`;
+                } else {
+                     metrics.forEach(m => {
+                         thead += `<th class="text-right border-b border-r bg-white text-gray-500 py-1 font-normal min-w-[90px]">${labelMap[m]}</th>`;
+                    });
+                    thead += `</tr>`;
+                }
+                thead += `</thead>`;
+
+                // 表体渲染
+                let tbody = `<tbody class="bg-white">`;
+                let sortedRowKeys = Object.keys(pivotedData);
+                
+                // 应用排序
+                if (currentConfig.sortBy.metric && metrics.includes(currentConfig.sortBy.metric)) {
+                    const sortMetric = currentConfig.sortBy.metric;
+                    const sortDir = currentConfig.sortBy.direction;
+                    
+                    sortedRowKeys.sort((a, b) => {
+                        // 计算每行该指标的总和
+                        const sumA = Object.values(pivotedData[a].values).reduce((sum, v) => sum + (v[sortMetric] || 0), 0);
+                        const sumB = Object.values(pivotedData[b].values).reduce((sum, v) => sum + (v[sortMetric] || 0), 0);
+                        
+                        return sortDir === 'desc' ? sumB - sumA : sumA - sumB;
+                    });
+                } else {
+                    sortedRowKeys.sort();
+                }
+                
+                // 更新统计信息
+                document.getElementById('rowCount').innerText = sortedRowKeys.length;
+                document.getElementById('colCount').innerText = colCombinations.length * metrics.length;
+
+                sortedRowKeys.forEach(rowKey => {
+                    const rowData = pivotedData[rowKey];
+                    tbody += `<tr class="hover:bg-blue-50 transition-colors group">`;
+                    
+                    // 渲染行维度 Header
+                    rows.forEach((r, idx) => {
+                        const style = `left: ${idx * 100}px;`;
+                        const val = rowData.meta[r] || '总计';
+                        tbody += `<td class="dim-cell sticky border-r border-b truncate max-w-[120px] group-hover:bg-blue-50 transition-colors" title="${val}" style="${style}">${val}</td>`;
+                    });
+
+                    // 渲染数值 Cells
+                    colCombinations.forEach(combo => {
+                        const vals = rowData.values[combo.key];
+                        metrics.forEach(m => {
+                            const val = vals ? vals[m] : 0;
+                            const colorClass = val < 0 ? 'negative' : '';
+                            // 格式化数字
+                            const formattedVal = val !== 0 ? val.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0}) : '-';
+                            tbody += `<td class="financial-num border-r border-b ${colorClass} data-updated">${formattedVal}</td>`;
+                        });
+                    });
+                    tbody += `</tr>`;
+                });
+                tbody += `</tbody>`;
+
+                container.innerHTML = `<table class="tableau-table w-full border-collapse min-w-max text-xs">${thead}${tbody}</table>`;
+                finishRender();
+            }, 250);
+
+            function finishRender() {
+                container.style.opacity = '1';
+                indicator.classList.remove('flex');
+                indicator.classList.add('hidden');
+            }
+        }
+
+        // --- 6. 筛选器交互 ---
+        window.toggleDateFilter = function(el) {
+            const dropdown = document.getElementById('dateFilterDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+        
+        window.selectDate = function(e, filterValue, displayText) {
+            e.preventDefault();
+            document.getElementById('currentDateFilter').innerText = displayText;
+            currentFilterDate = filterValue;
+            document.getElementById('dateFilterDropdown').classList.add('hidden');
+            renderTable();
+        }
+        
+        document.addEventListener('click', function(e) {
+            const filterEl = document.querySelector('#zone-filter .relative');
+            if (filterEl && !filterEl.contains(e.target)) {
+                const dd = document.getElementById('dateFilterDropdown');
+                if(dd) dd.classList.add('hidden');
+            }
+        });
+
+        // 初始化
+        updateSortIcons();
+        renderTable();
+        
+        // 点击其他地方关闭维度筛选器下拉
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('[data-filter-key]')) {
+                document.querySelectorAll('[id^="dimFilterDropdown-"]').forEach(dd => {
+                    dd.classList.add('hidden');
+                });
+            }
+        });
+
+    </script>
+</body>
+</html>

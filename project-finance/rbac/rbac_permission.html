@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>权限管理 - 权限中心</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../data.js"></script>
+    <script>tailwind.config = { theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } } } } }</script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        body { overflow-x: hidden; }
+        .mask-cell { background: repeating-linear-gradient(45deg, #f1f5f9, #f1f5f9 2px, #e2e8f0 2px, #e2e8f0 4px); color: transparent; user-select: none; }
+    </style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        // Icons
+        const IconWrapper = ({ children, size = 18, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
+        const Key = (p) => <IconWrapper {...p}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.3 9.3"/><path d="m17 6 4 4"/></IconWrapper>;
+        const ChevronRight = (p) => <IconWrapper {...p}><path d="m9 18 6-6-6-6"/></IconWrapper>;
+        const ChevronDown = (p) => <IconWrapper {...p}><path d="m6 9 6 6 6-6"/></IconWrapper>;
+        const Check = (p) => <IconWrapper {...p}><polyline points="20 6 9 17 4 12"/></IconWrapper>;
+        const X = (p) => <IconWrapper {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconWrapper>;
+        const Folder = (p) => <IconWrapper {...p}><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></IconWrapper>;
+        const File = (p) => <IconWrapper {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></IconWrapper>;
+        const Search = (p) => <IconWrapper {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></IconWrapper>;
+        const Database = (p) => <IconWrapper {...p}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></IconWrapper>;
+        const Filter = (p) => <IconWrapper {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></IconWrapper>;
+        const Columns = (p) => <IconWrapper {...p}><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></IconWrapper>;
+        const Table = (p) => <IconWrapper {...p}><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></IconWrapper>;
+        const Eye = (p) => <IconWrapper {...p}><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></IconWrapper>;
+        const EyeOff = (p) => <IconWrapper {...p}><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></IconWrapper>;
+        const Lock = (p) => <IconWrapper {...p}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></IconWrapper>;
+        const Unlock = (p) => <IconWrapper {...p}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></IconWrapper>;
+
+        // 使用统一数据
+        const PERMISSION_TREE = window.PERMISSION_TREE || [];
+        const ROLES = window.ROLES || [];
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('function');
+            const [selectedRole, setSelectedRole] = useState(ROLES[0]);
+            const [expandedNodes, setExpandedNodes] = useState(['report', 'workspace', 'rbac', 'config']);
+            const [searchText, setSearchText] = useState('');
+            const [selectedTable, setSelectedTable] = useState(null);
+
+            const tables = window.DATA_TABLES || [];
+            const rowRules = window.ROW_PERMISSION_RULES || [];
+            const columnRules = window.COLUMN_PERMISSION_RULES || [];
+            const roleDataPerms = window.ROLE_DATA_PERMISSIONS || {};
+            const tableData = window.TABLE_DATA || {};
+
+            const currentRoleDataPerm = roleDataPerms[selectedRole.id] || { tables: {} };
+
+            const toggleExpand = (id) => {
+                setExpandedNodes(prev => prev.includes(id) ? prev.filter(n => n !== id) : [...prev, id]);
+            };
+
+            const hasPermission = (permId) => {
+                if (selectedRole.permissions.includes('all')) return true;
+                return selectedRole.permissions.includes(permId);
+            };
+
+            const hasAnyChildPermission = (node) => {
+                if (selectedRole.permissions.includes('all')) return true;
+                if (hasPermission(node.id)) return true;
+                if (node.children) return node.children.some(child => hasAnyChildPermission(child));
+                return false;
+            };
+
+            // 获取表的可见列
+            const getVisibleColumns = (tableId) => {
+                const tablePerm = currentRoleDataPerm.tables[tableId];
+                if (!tablePerm || !tablePerm.access) return [];
+                const table = tables.find(t => t.id === tableId);
+                if (!table) return [];
+                
+                const allFields = Object.keys(table.fields);
+                if (tablePerm.columnRule === 'all') return allFields;
+                if (tablePerm.columnRule === 'hide_sensitive') {
+                    return allFields.filter(f => !table.fields[f].sensitive);
+                }
+                if (tablePerm.columnRule === 'basic_only') {
+                    return allFields.filter(f => table.fields[f].type === 'string');
+                }
+                if (tablePerm.columnRule === 'custom' && tablePerm.customColumns) {
+                    return tablePerm.customColumns;
+                }
+                return allFields;
+            };
+
+            // 获取表的过滤后数据
+            const getFilteredData = (tableId) => {
+                const tablePerm = currentRoleDataPerm.tables[tableId];
+                if (!tablePerm || !tablePerm.access) return [];
+                const data = tableData[tableId] || [];
+                if (tablePerm.rowRule === 'all' || !tablePerm.rowRule) return data;
+                
+                const rule = rowRules.find(r => r.id === tablePerm.rowRule);
+                if (!rule || !rule.filter) return data;
+                
+                const { field, operator, value } = rule.filter;
+                return data.filter(row => {
+                    if (operator === 'eq') return row[field] === value;
+                    if (operator === 'gt') return row[field] > value;
+                    if (operator === 'lt') return row[field] < value;
+                    return true;
+                });
+            };
+
+            const renderTreeNode = (node, level = 0) => {
+                const isExpanded = expandedNodes.includes(node.id);
+                const hasChildren = node.children && node.children.length > 0;
+                const isFolder = node.icon === 'folder';
+                const hasPerm = hasPermission(node.id);
+                const hasChildPerm = hasAnyChildPermission(node);
+
+                if (searchText && !node.name.includes(searchText) && !node.id.includes(searchText)) {
+                    if (!hasChildren || !node.children.some(c => c.name.includes(searchText) || c.id.includes(searchText))) return null;
+                }
+
+                return (
+                    <div key={node.id}>
+                        <div className={`flex items-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-all hover:bg-slate-50 ${hasPerm || hasChildPerm ? '' : 'opacity-40'}`}
+                            style={{ paddingLeft: `${level * 20 + 12}px` }}
+                            onClick={() => hasChildren && toggleExpand(node.id)}>
+                            {hasChildren ? <span className="text-slate-400 w-4">{isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span> : <span className="w-4" />}
+                            {isFolder ? <Folder size={16} className="text-amber-500" /> : <File size={16} className="text-slate-400" />}
+                            <span className={`flex-1 text-sm ${isFolder ? 'font-medium text-slate-700' : 'text-slate-600'}`}>{node.name}</span>
+                            {node.type === 'action' && <span className={`w-5 h-5 rounded flex items-center justify-center ${hasPerm ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-300'}`}><Check size={12} /></span>}
+                            {node.type === 'menu' && <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] rounded">菜单</span>}
+                        </div>
+                        {hasChildren && isExpanded && <div className="animate-fade-in">{node.children.map(child => renderTreeNode(child, level + 1))}</div>}
+                    </div>
+                );
+            };
+
+            const TabButton = ({ id, label, icon: Icon }) => (
+                <button onClick={() => setActiveTab(id)} className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all border-b-2 ${activeTab === id ? 'border-indigo-500 text-indigo-600 bg-indigo-50/50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                    <Icon size={18} /> {label}
+                </button>
+            );
+
+            // 表级权限卡片
+            const TablePermCard = ({ table }) => {
+                const perm = currentRoleDataPerm.tables[table.id] || { access: false };
+                const hasAccess = perm.access;
+                const rowRule = rowRules.find(r => r.id === perm.rowRule);
+                const colRule = columnRules.find(r => r.id === perm.columnRule);
+                const visibleCols = getVisibleColumns(table.id);
+                const allCols = Object.keys(table.fields);
+                const sensitiveCount = allCols.filter(f => table.fields[f].sensitive).length;
+
+                return (
+                    <div 
+                        onClick={() => hasAccess && setSelectedTable(table.id)}
+                        className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                            hasAccess 
+                                ? selectedTable === table.id 
+                                    ? 'border-indigo-400 bg-indigo-50/50 shadow-md' 
+                                    : 'border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm'
+                                : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
+                        }`}
+                    >
+                        <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasAccess ? 'bg-indigo-100' : 'bg-slate-200'}`}>
+                                    <Table size={16} className={hasAccess ? 'text-indigo-600' : 'text-slate-400'} />
+                                </div>
+                                <div>
+                                    <div className={`font-medium text-sm ${hasAccess ? 'text-slate-800' : 'text-slate-400'}`}>{table.name}</div>
+                                    <div className="text-xs text-slate-400">{table.id}</div>
+                                </div>
+                            </div>
+                            {hasAccess ? <Unlock size={16} className="text-green-500" /> : <Lock size={16} className="text-slate-300" />}
+                        </div>
+                        
+                        {hasAccess ? (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-xs">
+                                    <Filter size={12} className="text-blue-500" />
+                                    <span className="text-slate-500">行级:</span>
+                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded">{rowRule?.name || '全部'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                    <Columns size={12} className="text-green-500" />
+                                    <span className="text-slate-500">列级:</span>
+                                    <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded">{colRule?.name || '全部'}</span>
+                                    <span className="text-slate-400">({visibleCols.length}/{allCols.length})</span>
+                                </div>
+                                {sensitiveCount > 0 && (
+                                    <div className="flex items-center gap-1 text-xs text-amber-600">
+                                        <EyeOff size={12} />
+                                        <span>{sensitiveCount}个敏感字段</span>
+                                        {perm.columnRule === 'hide_sensitive' && <span className="text-green-600">（已隐藏）</span>}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-xs text-slate-400 flex items-center gap-1">
+                                <X size={12} /> 无访问权限
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 数据预览面板
+            const DataPreviewPanel = () => {
+                if (!selectedTable) {
+                    return (
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 text-center">
+                            <Database size={48} className="text-slate-200 mx-auto mb-4" />
+                            <p className="text-slate-400">选择左侧的数据表查看预览效果</p>
+                        </div>
+                    );
+                }
+
+                const table = tables.find(t => t.id === selectedTable);
+                const perm = currentRoleDataPerm.tables[selectedTable];
+                const visibleCols = getVisibleColumns(selectedTable);
+                const filteredData = getFilteredData(selectedTable);
+                const allData = tableData[selectedTable] || [];
+                const rowRule = rowRules.find(r => r.id === perm?.rowRule);
+
+                return (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                    <Eye size={18} className="text-slate-400" />
+                                    {table.name} - 数据预览
+                                </h3>
+                                <p className="text-xs text-slate-400 mt-1">
+                                    可见 <span className="text-indigo-600 font-medium">{filteredData.length}</span> 行 / 共 {allData.length} 行，
+                                    可见 <span className="text-green-600 font-medium">{visibleCols.length}</span> 列 / 共 {Object.keys(table.fields).length} 列
+                                </p>
+                            </div>
+                            {rowRule && rowRule.filter && (
+                                <div className="px-3 py-1.5 bg-blue-50 rounded-lg text-xs text-blue-700 font-mono">
+                                    {table.fields[rowRule.filter.field]?.label || rowRule.filter.field} 
+                                    {rowRule.filter.operator === 'eq' ? ' = ' : rowRule.filter.operator === 'gt' ? ' > ' : ' < '}
+                                    "{rowRule.filter.value}"
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* 字段权限展示 */}
+                        <div className="p-4 bg-slate-50 border-b border-slate-100">
+                            <div className="text-xs text-slate-500 mb-2">字段权限：</div>
+                            <div className="flex flex-wrap gap-2">
+                                {Object.entries(table.fields).map(([fieldId, field]) => {
+                                    const isVisible = visibleCols.includes(fieldId);
+                                    return (
+                                        <span key={fieldId} className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${
+                                            isVisible 
+                                                ? field.sensitive 
+                                                    ? 'bg-amber-100 text-amber-700' 
+                                                    : 'bg-green-100 text-green-700'
+                                                : 'bg-slate-200 text-slate-400 line-through'
+                                        }`}>
+                                            {field.sensitive && isVisible && <EyeOff size={10} />}
+                                            {field.label}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* 数据表格 */}
+                        <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 sticky top-0">
+                                    <tr>
+                                        {Object.entries(table.fields).map(([fieldId, field]) => {
+                                            const isVisible = visibleCols.includes(fieldId);
+                                            return (
+                                                <th key={fieldId} className={`px-4 py-3 text-left font-medium whitespace-nowrap ${isVisible ? 'text-slate-700' : 'text-slate-300'}`}>
+                                                    <div className="flex items-center gap-1">
+                                                        {field.label}
+                                                        {!isVisible && <EyeOff size={12} className="text-slate-300" />}
+                                                        {field.sensitive && isVisible && <span className="text-amber-500 text-[10px]">敏感</span>}
+                                                    </div>
+                                                </th>
+                                            );
+                                        })}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredData.slice(0, 8).map((row, idx) => (
+                                        <tr key={idx} className="border-t border-slate-100 hover:bg-slate-50">
+                                            {Object.entries(table.fields).map(([fieldId, field]) => {
+                                                const isVisible = visibleCols.includes(fieldId);
+                                                return (
+                                                    <td key={fieldId} className={`px-4 py-3 whitespace-nowrap ${!isVisible ? 'mask-cell' : ''}`}>
+                                                        {isVisible ? (
+                                                            typeof row[fieldId] === 'number' 
+                                                                ? row[fieldId].toLocaleString() 
+                                                                : row[fieldId]
+                                                        ) : '******'}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {filteredData.length > 8 && (
+                            <div className="p-3 text-center text-xs text-slate-400 border-t border-slate-100">
+                                仅显示前 8 条预览，共 {filteredData.length} 条
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 权限规则库面板
+            const RulesPanel = () => (
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+                        <h4 className="font-bold text-slate-800 mb-3 text-sm flex items-center gap-2">
+                            <Filter size={14} className="text-blue-500" /> 行级权限规则库
+                        </h4>
+                        <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                            {rowRules.map(rule => (
+                                <div key={rule.id} className="p-3 rounded-lg border border-slate-100 bg-slate-50 text-sm">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-slate-700">{rule.name}</span>
+                                        <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded font-mono">{rule.id}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1">{rule.description}</p>
+                                    {rule.filter && (
+                                        <div className="mt-2 text-xs font-mono text-slate-500 bg-white rounded px-2 py-1">
+                                            {rule.filter.field} {rule.filter.operator} "{rule.filter.value}"
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+                        <h4 className="font-bold text-slate-800 mb-3 text-sm flex items-center gap-2">
+                            <Columns size={14} className="text-green-500" /> 列级权限规则库
+                        </h4>
+                        <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                            {columnRules.map(rule => (
+                                <div key={rule.id} className="p-3 rounded-lg border border-slate-100 bg-slate-50 text-sm">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-slate-700">{rule.name}</span>
+                                        <span className="text-xs px-2 py-0.5 bg-green-50 text-green-600 rounded font-mono">{rule.id}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1">{rule.description}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // 权限矩阵总览
+            const PermissionMatrix = () => {
+                const accessibleCount = tables.filter(t => currentRoleDataPerm.tables[t.id]?.access).length;
+                return (
+                    <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-5 text-white mb-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="font-bold text-lg">{selectedRole.name} - 数据权限概览</h3>
+                                <p className="text-indigo-100 text-sm mt-1">
+                                    可访问 {accessibleCount} / {tables.length} 张数据表
+                                </p>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold">{accessibleCount}</div>
+                                    <div className="text-xs text-indigo-200">可访问表</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold">{tables.length - accessibleCount}</div>
+                                    <div className="text-xs text-indigo-200">受限表</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="p-8 max-w-[1400px] mx-auto animate-fade-in">
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><Key size={20} className="text-blue-600" /></div>
+                            权限管理
+                        </h2>
+                        <p className="text-slate-500 text-sm mt-1 ml-13">查看和管理系统功能权限与数据权限配置</p>
+                    </div>
+
+                    {/* Tab切换 */}
+                    <div className="flex gap-0 mb-6 bg-white rounded-t-2xl border border-slate-100 border-b-0 overflow-hidden">
+                        <TabButton id="function" label="功能权限" icon={Key} />
+                        <TabButton id="data" label="数据权限" icon={Database} />
+                    </div>
+
+                    <div className="grid grid-cols-12 gap-6">
+                        {/* 角色选择 */}
+                        <div className="col-span-3 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="p-5 border-b border-slate-100">
+                                <h3 className="font-bold text-slate-800">选择角色</h3>
+                                <p className="text-xs text-slate-400 mt-1">查看角色权限配置</p>
+                            </div>
+                            <div className="p-4 space-y-2 max-h-[600px] overflow-y-auto">
+                                {ROLES.map(role => {
+                                    const rolePerm = roleDataPerms[role.id] || { tables: {} };
+                                    const accessCount = tables.filter(t => rolePerm.tables[t.id]?.access).length;
+                                    return (
+                                        <div key={role.id} onClick={() => { setSelectedRole(role); setSelectedTable(null); }}
+                                            className={`p-3 rounded-xl cursor-pointer transition-all ${selectedRole.id === role.id ? 'bg-indigo-50 border-2 border-indigo-200' : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'}`}>
+                                            <div className="font-medium text-slate-700 text-sm">{role.name}</div>
+                                            <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                                                <span>{role.permissions.includes('all') ? '全部功能' : `${role.permissions.length}项功能`}</span>
+                                                <span className="text-slate-300">|</span>
+                                                <span className="text-indigo-500">{accessCount}张表</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* 权限内容区 */}
+                        <div className="col-span-9">
+                            {activeTab === 'function' ? (
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                    <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                                        <div>
+                                            <h3 className="font-bold text-slate-800">功能权限 - {selectedRole.name}</h3>
+                                            <p className="text-xs text-slate-400 mt-1">绿色勾选表示已授权</p>
+                                        </div>
+                                        <div className="relative">
+                                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                            <input type="text" placeholder="搜索权限..." value={searchText} onChange={e => setSearchText(e.target.value)}
+                                                className="pl-9 pr-4 py-2 bg-slate-50 rounded-xl text-sm w-48 outline-none focus:ring-2 focus:ring-indigo-100" />
+                                        </div>
+                                    </div>
+                                    <div className="p-4 max-h-[500px] overflow-y-auto">
+                                        {selectedRole.permissions.includes('all') && (
+                                            <div className="mb-4 p-4 bg-red-50 rounded-xl border border-red-100 text-red-600 text-sm flex items-center gap-2">
+                                                <Key size={16} /> 超级管理员拥有系统所有权限
+                                            </div>
+                                        )}
+                                        {PERMISSION_TREE.map(node => renderTreeNode(node))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <PermissionMatrix />
+                                    
+                                    {/* 表级权限卡片 */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        {tables.map(table => <TablePermCard key={table.id} table={table} />)}
+                                    </div>
+
+                                    {/* 数据预览 */}
+                                    <DataPreviewPanel />
+
+                                    {/* 规则库 */}
+                                    <RulesPanel />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
