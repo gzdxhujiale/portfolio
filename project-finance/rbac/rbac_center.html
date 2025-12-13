@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>权限中心</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } } } } }</script>
+    <style>::-webkit-scrollbar { width: 0px; background: transparent; } body { overflow-x: hidden; }</style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const IconWrapper = ({ children, size = 24, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
+        const Users = (p) => <IconWrapper {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></IconWrapper>;
+        const Shield = (p) => <IconWrapper {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></IconWrapper>;
+        const Key = (p) => <IconWrapper {...p}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.3 9.3"/><path d="m17 6 4 4"/></IconWrapper>;
+        const FileText = (p) => <IconWrapper {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></IconWrapper>;
+        const Send = (p) => <IconWrapper {...p}><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></IconWrapper>;
+        const ArrowRight = (p) => <IconWrapper {...p}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></IconWrapper>;
+
+        const App = () => {
+            const navigate = (url) => { window.location.href = url; };
+
+            const cards = [
+                { title: '用户管理', desc: '管理系统用户账号，分配角色权限，启用/停用用户', icon: Users, color: 'indigo', url: 'rbac_user.html', stats: { label: '用户总数', value: '7' } },
+                { title: '角色管理', desc: '定义系统角色，配置角色权限，管理角色成员', icon: Shield, color: 'purple', url: 'rbac_role.html', stats: { label: '角色数量', value: '7' } },
+                { title: '权限管理', desc: '查看和管理系统功能权限配置，权限树结构展示', icon: Key, color: 'blue', url: 'rbac_permission.html', stats: { label: '权限项', value: '42' } },
+                { title: '操作日志', desc: '记录系统所有用户操作行为，支持审计追溯', icon: FileText, color: 'amber', url: 'rbac_log.html', stats: { label: '今日操作', value: '156' } },
+                { title: '权限申请', desc: '提交权限申请，审批权限请求，跟踪申请状态', icon: Send, color: 'cyan', url: 'rbac_apply.html', stats: { label: '待审批', value: '3' } },
+            ];
+
+            const getColorClass = (color) => ({
+                indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', gradient: 'from-indigo-500 to-blue-500', shadow: 'shadow-indigo-200' },
+                purple: { bg: 'bg-purple-50', text: 'text-purple-600', gradient: 'from-purple-500 to-pink-500', shadow: 'shadow-purple-200' },
+                blue: { bg: 'bg-blue-50', text: 'text-blue-600', gradient: 'from-blue-500 to-cyan-500', shadow: 'shadow-blue-200' },
+                amber: { bg: 'bg-amber-50', text: 'text-amber-600', gradient: 'from-amber-500 to-orange-500', shadow: 'shadow-amber-200' },
+                cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600', gradient: 'from-cyan-500 to-teal-500', shadow: 'shadow-cyan-200' },
+            }[color]);
+
+            return (
+                <div className="p-10 max-w-7xl mx-auto">
+                    <div className="mb-10">
+                        <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                                <Shield size={24} />
+                            </div>
+                            权限中心
+                        </h1>
+                        <p className="text-slate-500 mt-2 ml-15">基于 RBAC 模型的统一权限管理平台</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                        {cards.map((card, i) => {
+                            const colors = getColorClass(card.color);
+                            return (
+                                <div key={i} className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 hover:shadow-lg transition-all cursor-pointer group" onClick={() => navigate(card.url)}>
+                                    <div className={`w-14 h-14 rounded-2xl ${colors.bg} ${colors.text} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                                        <card.icon size={28} />
+                                    </div>
+                                    <h2 className="text-xl font-bold text-slate-800 mb-2">{card.title}</h2>
+                                    <p className="text-slate-500 text-sm mb-6 leading-relaxed">{card.desc}</p>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-sm">
+                                            <span className="text-slate-400">{card.stats.label}：</span>
+                                            <span className={`font-bold ${colors.text}`}>{card.stats.value}</span>
+                                        </div>
+                                        <div className={`flex items-center ${colors.text} font-medium text-sm group-hover:translate-x-2 transition-transform`}>
+                                            进入 <ArrowRight size={16} className="ml-1"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* 快速统计 */}
+                    <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-[2rem] p-8 text-white">
+                        <h3 className="text-lg font-bold mb-6 opacity-80">权限概览</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            <div className="text-center p-4 bg-white/5 rounded-2xl">
+                                <div className="text-3xl font-bold text-indigo-400">7</div>
+                                <div className="text-slate-400 text-sm mt-1">系统角色</div>
+                            </div>
+                            <div className="text-center p-4 bg-white/5 rounded-2xl">
+                                <div className="text-3xl font-bold text-green-400">6</div>
+                                <div className="text-slate-400 text-sm mt-1">活跃用户</div>
+                            </div>
+                            <div className="text-center p-4 bg-white/5 rounded-2xl">
+                                <div className="text-3xl font-bold text-amber-400">3</div>
+                                <div className="text-slate-400 text-sm mt-1">待审批申请</div>
+                            </div>
+                            <div className="text-center p-4 bg-white/5 rounded-2xl">
+                                <div className="text-3xl font-bold text-cyan-400">156</div>
+                                <div className="text-slate-400 text-sm mt-1">今日操作</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据字典与文档 - 系统设置</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } } } } }</script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        body { overflow-x: hidden; }
+    </style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        const IconWrapper = ({ children, size = 18, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
+        const Book = (p) => <IconWrapper {...p}><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></IconWrapper>;
+        const Search = (p) => <IconWrapper {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></IconWrapper>;
+        const ChevronRight = (p) => <IconWrapper {...p}><path d="m9 18 6-6-6-6"/></IconWrapper>;
+        const ChevronDown = (p) => <IconWrapper {...p}><path d="m6 9 6 6 6-6"/></IconWrapper>;
+        const FileText = (p) => <IconWrapper {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></IconWrapper>;
+        const Calculator = (p) => <IconWrapper {...p}><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></IconWrapper>;
+        const HelpCircle = (p) => <IconWrapper {...p}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></IconWrapper>;
+        const PlayCircle = (p) => <IconWrapper {...p}><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></IconWrapper>;
+
+        // 指标口径数据
+        const METRICS = [
+            // 收入指标
+            { id: 1, category: '收入指标', name: 'GMV', alias: '商品交易总额', formula: '∑(订单金额) - 取消订单金额', unit: '元', source: 'dws_transaction_summary', desc: '统计周期内所有成交订单的总金额，不含取消订单' },
+            { id: 2, category: '收入指标', name: '主营业务收入', alias: '销售收入', formula: 'GMV - 退货金额 - 平台补贴', unit: '元', source: 'ads_IncomeStatement', desc: '扣除退货和补贴后的实际销售收入' },
+            { id: 3, category: '收入指标', name: '其他业务收入', alias: '非主营收入', formula: '∑(服务费 + 佣金 + 其他)', unit: '元', source: 'ads_IncomeStatement', desc: '除主营业务外的其他收入来源' },
+            { id: 4, category: '收入指标', name: '实收现金', alias: '现金收入', formula: '∑(实际收到的现金款项)', unit: '元', source: 'ads_CashFlowStatement', desc: '实际收到的现金款项，包括销售商品、提供劳务收到的现金' },
+            { id: 5, category: '收入指标', name: '确认收入', alias: '已确认收入', formula: '∑(符合收入确认条件的订单金额)', unit: '元', source: 'ads_IncomeStatement', desc: '按照会计准则确认的收入，需满足商品控制权转移等条件' },
+            // 成本指标
+            { id: 6, category: '成本指标', name: '商品成本', alias: '货品成本', formula: '∑(SKU成本 × 销售数量)', unit: '元', source: 'dwd_goods_costs', desc: '已售商品的采购成本' },
+            { id: 7, category: '成本指标', name: '物流成本', alias: '运费', formula: '∑(快递费 + 仓储费 + 包装费)', unit: '元', source: 'dwd_general_expenses', desc: '商品配送相关的所有费用' },
+            { id: 8, category: '成本指标', name: '营销成本', alias: '推广费', formula: '∑(广告费 + 佣金 + 活动费)', unit: '元', source: 'dwd_transaction_costs', desc: '用于推广和营销的费用支出' },
+            { id: 9, category: '成本指标', name: '可控成本', alias: '直接成本', formula: '∑(人力成本 + 业务费用 + 其他直接支出)', unit: '元', source: 'dwd_ameba_costs', desc: '阿米巴单元可直接控制的成本支出' },
+            { id: 10, category: '成本指标', name: '分摊成本', alias: '间接成本', formula: '∑(房租分摊 + 中台服务分摊 + 资金占用费)', unit: '元', source: 'dwd_allocated_costs', desc: '按规则分摊到各阿米巴单元的间接成本' },
+            { id: 11, category: '成本指标', name: '交易成本', alias: '平台费用', formula: '∑(平台佣金 + 支付手续费 + 技术服务费)', unit: '元', source: 'dwd_transaction_costs', desc: '与交易相关的平台费用支出' },
+            // 利润指标
+            { id: 12, category: '利润指标', name: '毛利润', alias: '毛利', formula: '主营业务收入 - 商品成本', unit: '元', source: '计算指标', desc: '销售收入减去商品成本后的利润' },
+            { id: 13, category: '利润指标', name: '毛利率', alias: 'GPM', formula: '毛利润 / 主营业务收入 × 100%', unit: '%', source: '计算指标', desc: '毛利润占销售收入的比例' },
+            { id: 14, category: '利润指标', name: '净利润', alias: '纯利', formula: '毛利润 - 期间费用 - 税金', unit: '元', source: 'ads_IncomeStatement', desc: '扣除所有成本费用后的最终利润' },
+            { id: 15, category: '利润指标', name: '净利率', alias: 'NPM', formula: '净利润 / 主营业务收入 × 100%', unit: '%', source: '计算指标', desc: '净利润占销售收入的比例' },
+            { id: 16, category: '利润指标', name: '边际贡献', alias: '贡献毛益', formula: '经营收入 - 可控成本', unit: '元', source: '计算指标', desc: '阿米巴单元扣除可控成本后的贡献利润' },
+            { id: 17, category: '利润指标', name: '核算利润', alias: '阿米巴利润', formula: '边际贡献 - 分摊成本', unit: '元', source: '计算指标', desc: '阿米巴单元最终核算的经营利润' },
+            { id: 18, category: '利润指标', name: '营业利润', alias: '经营利润', formula: '营业收入 - 营业成本 - 期间费用', unit: '元', source: 'ads_IncomeStatement', desc: '企业日常经营活动产生的利润' },
+            // 效率指标
+            { id: 19, category: '效率指标', name: 'ROI', alias: '投资回报率', formula: '(收入 - 成本) / 成本 × 100%', unit: '%', source: '计算指标', desc: '投入产出比，衡量投资效率' },
+            { id: 20, category: '效率指标', name: '客单价', alias: 'AOV', formula: 'GMV / 订单数', unit: '元', source: '计算指标', desc: '平均每笔订单的金额' },
+            { id: 21, category: '效率指标', name: '退货率', alias: '退款率', formula: '退货订单数 / 总订单数 × 100%', unit: '%', source: '计算指标', desc: '退货订单占总订单的比例' },
+            { id: 22, category: '效率指标', name: '利润率', alias: '经营利润率', formula: '核算利润 / 经营收入 × 100%', unit: '%', source: '计算指标', desc: '阿米巴单元的利润率' },
+            // 业务量指标
+            { id: 23, category: '业务量指标', name: '订单数', alias: '订单量', formula: 'COUNT(订单ID)', unit: '单', source: 'stg_onlines_transactions', desc: '统计周期内的订单总数' },
+            { id: 24, category: '业务量指标', name: '发货数', alias: '发货量', formula: 'COUNT(已发货订单)', unit: '单', source: 'dwd_income', desc: '已完成发货的订单数量' },
+            { id: 25, category: '业务量指标', name: '结算数', alias: '结算量', formula: 'COUNT(已结算订单)', unit: '单', source: 'dwd_income', desc: '已完成结算的订单数量' },
+            { id: 26, category: '业务量指标', name: '退款数', alias: '退款量', formula: 'COUNT(退款订单)', unit: '单', source: 'dwd_transaction_costs', desc: '发生退款的订单数量' },
+            // 资产负债指标
+            { id: 27, category: '资产负债指标', name: '资产总计', alias: '总资产', formula: '∑(流动资产 + 非流动资产)', unit: '元', source: 'ads_BalanceSheet', desc: '企业拥有或控制的全部资产' },
+            { id: 28, category: '资产负债指标', name: '负债总计', alias: '总负债', formula: '∑(流动负债 + 非流动负债)', unit: '元', source: 'ads_BalanceSheet', desc: '企业承担的全部债务' },
+            { id: 29, category: '资产负债指标', name: '所有者权益', alias: '净资产', formula: '资产总计 - 负债总计', unit: '元', source: 'ads_BalanceSheet', desc: '企业资产扣除负债后的净值' },
+            { id: 30, category: '资产负债指标', name: '应收账款', alias: '应收款', formula: '∑(未收回的销售款项)', unit: '元', source: 'ads_BalanceSheet', desc: '企业因销售商品、提供劳务等应收取的款项' },
+            { id: 31, category: '资产负债指标', name: '存货', alias: '库存', formula: '∑(原材料 + 在产品 + 产成品)', unit: '元', source: 'ads_BalanceSheet', desc: '企业持有的各类存货价值' },
+            // 现金流指标
+            { id: 32, category: '现金流指标', name: '经营活动现金流', alias: '经营现金流', formula: '销售收现 - 购买支现 - 支付薪酬等', unit: '元', source: 'ads_CashFlowStatement', desc: '企业日常经营活动产生的现金流量净额' },
+            { id: 33, category: '现金流指标', name: '投资活动现金流', alias: '投资现金流', formula: '收回投资 - 购建资产支出', unit: '元', source: 'ads_CashFlowStatement', desc: '企业投资活动产生的现金流量净额' },
+            { id: 34, category: '现金流指标', name: '筹资活动现金流', alias: '筹资现金流', formula: '吸收投资 - 偿还债务 - 分配股利', unit: '元', source: 'ads_CashFlowStatement', desc: '企业筹资活动产生的现金流量净额' },
+            { id: 35, category: '现金流指标', name: '现金净增加额', alias: '现金变动', formula: '经营现金流 + 投资现金流 + 筹资现金流', unit: '元', source: 'ads_CashFlowStatement', desc: '企业现金及现金等价物的净增加额' },
+        ];
+
+        // 帮助文档
+        const HELP_DOCS = [
+            { id: 1, category: '快速入门', title: '系统概述', desc: '了解财务中心的整体架构和功能模块', icon: '📖', content: `
+## 系统概述
+
+财务中心是一个面向电商企业的综合财务数据分析平台，主要包含以下核心模块：
+
+### 核心功能模块
+1. **数据分析** - 三大经营仓（公司、阿米巴、店铺）提供多维度财务分析
+2. **自助数据看板** - 类Tableau的拖拽式报表配置器
+3. **权限中心** - 基于RBAC的用户权限管理
+4. **系统设置** - 配置管理、通知设置、数据字典
+
+### 数据架构
+- 数据源：对接ERP、电商平台、财务系统
+- 数据仓库：分层架构（ODS→DWD→DWS→ADS）
+- 数据更新：T+1日更新，部分指标支持实时
+
+### 适用角色
+财务人员、业务分析师、管理层、运营人员
+            ` },
+            { id: 2, category: '快速入门', title: '首次使用指南', desc: '新用户快速上手教程', icon: '🚀', content: `
+## 首次使用指南
+
+### 第一步：登录系统
+使用管理员分配的账号密码登录系统，首次登录建议修改密码。
+
+### 第二步：了解导航
+- 左侧导航栏包含所有功能模块
+- 点击展开/收起子菜单
+- 常用功能可添加到收藏夹
+
+### 第三步：查看报表
+1. 进入【数据分析】选择对应的经营仓
+2. 使用时间筛选器选择分析周期
+3. 点击数据行可查看明细
+
+### 第四步：创建自定义报表
+1. 进入【自助数据看板】
+2. 从左侧拖拽维度和指标到配置区
+3. 系统自动生成透视表
+4. 保存报表供后续使用
+
+### 常用快捷操作
+- 双击表头可排序
+- 右键菜单可导出数据
+- Ctrl+F 快速搜索
+            ` },
+            { id: 3, category: '报表使用', title: '公司经营仓使用说明', desc: '如何查看和分析三大财务报表', icon: '📊', content: `
+## 公司经营仓使用说明
+
+### 功能概述
+公司经营仓提供企业级财务报表分析，包含资产负债表、利润表、现金流量表和预算监控。
+
+### 资产负债表
+- 展示企业资产、负债、所有者权益结构
+- 支持展开/收起查看明细科目
+- 点击叶子节点可查看凭证明细
+
+### 利润表
+- 展示收入、成本、费用、利润结构
+- 支持同比/环比分析
+- 可追溯到具体业务明细
+
+### 现金流量表
+- 展示经营、投资、筹资三大活动现金流
+- 分析企业现金健康状况
+
+### 预算监控
+- 科目预算执行进度
+- 阿米巴部门预算监控
+- 支持预算调整功能
+
+### 操作技巧
+- 使用时间切片快速切换分析周期
+- 开启"全部展开"查看完整报表结构
+- 选择同比/环比模式进行趋势分析
+            ` },
+            { id: 4, category: '报表使用', title: '阿米巴经营仓使用说明', desc: '部门核算数据查看与分析', icon: '🎯', content: `
+## 阿米巴经营仓使用说明
+
+### 什么是阿米巴经营
+阿米巴经营是将企业划分为最小经营单元，独立核算收入、成本、利润的管理模式。
+
+### 核心指标说明
+- **经营收入**：阿米巴单元的全部收入
+- **可控成本**：单元可直接控制的成本（人力、业务费用等）
+- **边际贡献**：收入减去可控成本
+- **分摊成本**：按规则分摊的间接成本
+- **核算利润**：边际贡献减去分摊成本
+
+### 功能操作
+1. **排名功能**：按利润排序，显示排名徽章
+2. **同环比分析**：对比历史同期或上期数据
+3. **详情分析**：点击行查看单元详细损益表
+4. **趋势图表**：查看月度收入成本利润趋势
+
+### 数据钻取
+点击损益表项目可查看具体明细账，追溯到原始凭证。
+            ` },
+            { id: 5, category: '报表使用', title: '店铺经营仓使用说明', desc: '多平台店铺数据分析指南', icon: '🏪', content: `
+## 店铺经营仓使用说明
+
+### 功能概述
+店铺经营仓提供多平台（淘宝、抖音、快手等）店铺级别的经营数据分析。
+
+### 核心指标
+- **GMV**：商品交易总额
+- **毛利率/净利率**：盈利能力指标
+- **退货率**：商品质量和服务指标
+- **ROI**：投资回报率
+- **客单价**：平均订单金额
+
+### 分析维度
+1. **收支视图**：收入、成本、毛利趋势
+2. **效率视图**：ROI、客单价分析
+3. **业务量视图**：订单数、发货数、结算数、退款数
+
+### 数据钻取路径
+年度概览 → 月度详情 → 日维度订单 → 商品财务明细
+
+### 操作说明
+- 点击店铺卡片进入详情分析
+- 点击图表柱/点可钻取到下一层级
+- 点击饼图扇区查看成本/科目明细
+            ` },
+            { id: 6, category: '报表使用', title: '自助数据报表使用说明', desc: '拖拽式报表配置教程', icon: '📈', content: `
+## 自助数据报表使用说明
+
+### 功能概述
+自助数据报表是类似Tableau的拖拽式数据分析工具，支持灵活配置透视表。
+
+### 界面布局
+- **左侧面板**：维度和度量字段列表
+- **配置区**：筛选、行、列、数值配置
+- **预览区**：实时生成的透视表
+
+### 操作步骤
+1. 从左侧拖拽【维度】到行或列区域
+2. 从左侧拖拽【度量】到数值区域
+3. 设置筛选条件（如时间范围）
+4. 系统自动生成透视表
+5. 点击保存按钮保存报表
+
+### 字段说明
+**维度字段**：客户、平台、店铺、日期、科目
+**度量字段**：经营利润、GMV、交易成本
+
+### 导出功能
+点击"导出Excel"可将当前报表导出为Excel文件。
+
+### 注意事项
+- 维度只能放在行或列区域
+- 度量只能放在数值区域
+- 建议先设置筛选条件再配置字段
+            ` },
+            { id: 7, category: '配置管理', title: '维度数据配置', desc: '客户、平台、店铺等维度数据管理', icon: '⚙️', content: `
+## 维度数据配置
+
+### 功能说明
+维度数据配置用于管理系统中的基础数据，包括客户、平台、店铺等维度信息。
+
+### 客户管理
+- 新增/编辑/删除客户信息
+- 设置客户编码、名称、联系方式
+- 关联客户与店铺的归属关系
+
+### 平台管理
+- 配置电商平台信息（淘宝、抖音、快手等）
+- 设置平台费率、结算周期
+- 配置平台API对接参数
+
+### 店铺管理
+- 管理各平台店铺信息
+- 设置店铺与客户、阿米巴的关联
+- 配置店铺级别的核算规则
+
+### 科目管理
+- 维护财务科目体系
+- 设置科目编码、名称、类型
+- 配置科目与数据源的映射关系
+
+### 操作权限
+维度数据配置需要【数据资产管理员】或更高权限。
+            ` },
+            { id: 8, category: '配置管理', title: '账单映射配置', desc: '线上线下账单字段映射规则', icon: '🔗', content: `
+## 账单映射配置
+
+### 功能说明
+账单映射配置用于将各平台原始账单字段映射到系统标准字段。
+
+### 映射类型
+1. **线上账单映射**：电商平台账单字段映射
+2. **线下账单映射**：ERP/财务系统账单映射
+3. **银行账单映射**：银行流水字段映射
+
+### 配置步骤
+1. 选择数据源类型
+2. 上传样例账单文件
+3. 系统自动识别字段
+4. 手动调整映射关系
+5. 保存并测试映射规则
+
+### 标准字段
+- 订单编号、交易时间、商品信息
+- 收入金额、成本金额、费用金额
+- 客户信息、店铺信息、平台信息
+
+### 映射规则
+- 支持一对一、多对一映射
+- 支持字段计算和转换
+- 支持条件映射（根据值判断）
+
+### 注意事项
+修改映射规则后需要重新执行数据同步。
+            ` },
+            { id: 9, category: '权限管理', title: '用户与角色管理', desc: 'RBAC权限体系说明', icon: '🔐', content: `
+## 用户与角色管理
+
+### RBAC权限模型
+系统采用基于角色的访问控制（RBAC）模型：
+用户 → 角色 → 权限
+
+### 预设角色
+- **超级管理员**：全部权限
+- **运维工程师**：系统配置、数据同步
+- **数据质量管理员**：数据质量监控
+- **数据资产管理员**：维度数据管理
+- **财务BI**：财务报表查看
+- **业务BI**：业务数据分析
+- **高层管理者**：全部报表只读
+
+### 权限类型
+- **菜单权限**：控制可见的功能模块
+- **数据权限**：控制可见的数据范围
+- **操作权限**：控制可执行的操作
+
+### 用户管理
+- 新增/编辑/禁用用户
+- 分配用户角色
+- 设置数据权限范围
+
+### 权限申请
+普通用户可通过【权限申请】提交权限变更申请，由管理员审批。
+            ` },
+            { id: 10, category: '常见问题', title: 'FAQ', desc: '常见问题解答', icon: '❓', content: `
+## 常见问题解答
+
+### Q1: 数据什么时候更新？
+A: 系统数据T+1日更新，每日凌晨2:00完成数据同步。部分实时指标每小时更新。
+
+### Q2: 为什么看到的数据和平台不一致？
+A: 可能原因：
+- 数据同步延迟
+- 口径定义不同（如GMV是否含取消订单）
+- 时区差异
+建议查看数据字典确认指标口径。
+
+### Q3: 如何导出数据？
+A: 
+- 报表页面点击"导出Excel"按钮
+- 自助报表支持导出当前配置的数据
+- 大数据量导出请联系管理员
+
+### Q4: 忘记密码怎么办？
+A: 点击登录页"忘记密码"，通过邮箱验证重置密码。或联系管理员重置。
+
+### Q5: 如何申请新权限？
+A: 进入【权限中心】→【权限申请】，填写申请表单，等待管理员审批。
+
+### Q6: 报表加载很慢怎么办？
+A: 
+- 缩小时间范围
+- 减少维度字段
+- 清除浏览器缓存
+- 联系技术支持优化
+
+### Q7: 如何联系技术支持？
+A: 发送邮件至 support@example.com 或企业微信联系IT部门。
+            ` },
+        ];
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('metrics');
+            const [searchText, setSearchText] = useState('');
+            const [expandedCategory, setExpandedCategory] = useState('收入指标');
+            const [selectedMetric, setSelectedMetric] = useState(null);
+            const [selectedDoc, setSelectedDoc] = useState(null);
+
+            const categories = [...new Set(METRICS.map(m => m.category))];
+            const docCategories = [...new Set(HELP_DOCS.map(d => d.category))];
+
+            const filteredMetrics = METRICS.filter(m => 
+                !searchText || m.name.includes(searchText) || m.alias.includes(searchText) || m.desc.includes(searchText)
+            );
+
+            return (
+                <div className="p-8 max-w-[1400px] mx-auto animate-fade-in">
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                                <Book size={20} className="text-violet-600" />
+                            </div>
+                            数据字典与文档
+                        </h2>
+                        <p className="text-slate-500 text-sm mt-1 ml-13">指标口径说明、帮助文档、使用教程</p>
+                    </div>
+
+                    {/* Tab 切换 */}
+                    <div className="flex gap-4 mb-6">
+                        <button onClick={() => setActiveTab('metrics')} className={`px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 ${activeTab === 'metrics' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                            <Calculator size={18} /> 指标口径
+                        </button>
+                        <button onClick={() => setActiveTab('docs')} className={`px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 ${activeTab === 'docs' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                            <HelpCircle size={18} /> 帮助文档
+                        </button>
+                    </div>
+
+                    {activeTab === 'metrics' && (
+                        <div className="grid grid-cols-12 gap-6">
+                            {/* 左侧分类 */}
+                            <div className="col-span-3 bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                                <div className="p-4 border-b border-slate-100">
+                                    <div className="relative">
+                                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input type="text" placeholder="搜索指标..." value={searchText} onChange={e => setSearchText(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100" />
+                                    </div>
+                                </div>
+                                <div className="p-4 space-y-2">
+                                    {categories.map(cat => (
+                                        <div key={cat}>
+                                            <button onClick={() => setExpandedCategory(expandedCategory === cat ? '' : cat)} className={`w-full flex items-center justify-between p-3 rounded-xl text-sm font-medium transition-all ${expandedCategory === cat ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                                <span>{cat}</span>
+                                                {expandedCategory === cat ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                            </button>
+                                            {expandedCategory === cat && (
+                                                <div className="ml-4 mt-1 space-y-1 animate-fade-in">
+                                                    {filteredMetrics.filter(m => m.category === cat).map(m => (
+                                                        <button key={m.id} onClick={() => setSelectedMetric(m)} className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedMetric?.id === m.id ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                                            {m.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 右侧详情 */}
+                            <div className="col-span-9 bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                                {selectedMetric ? (
+                                    <div className="p-8 animate-fade-in">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center">
+                                                <Calculator size={28} className="text-indigo-600" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-2xl font-bold text-slate-800">{selectedMetric.name}</h3>
+                                                <p className="text-slate-400">{selectedMetric.alias}</p>
+                                            </div>
+                                            <span className="ml-auto px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm">{selectedMetric.category}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-6 mb-6">
+                                            <div className="p-4 bg-slate-50 rounded-xl">
+                                                <div className="text-xs text-slate-400 mb-1">计算公式</div>
+                                                <div className="font-mono text-indigo-600 font-medium">{selectedMetric.formula}</div>
+                                            </div>
+                                            <div className="p-4 bg-slate-50 rounded-xl">
+                                                <div className="text-xs text-slate-400 mb-1">单位</div>
+                                                <div className="font-medium text-slate-700">{selectedMetric.unit}</div>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-xl mb-6">
+                                            <div className="text-xs text-slate-400 mb-1">数据来源</div>
+                                            <div className="font-mono text-sm text-slate-600">{selectedMetric.source}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-medium text-slate-600 mb-2">指标说明</div>
+                                            <p className="text-slate-500 leading-relaxed">{selectedMetric.desc}</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-slate-400 p-20">
+                                        <div className="text-center">
+                                            <Calculator size={48} className="mx-auto mb-4 opacity-30" />
+                                            <p>请从左侧选择一个指标查看详情</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'docs' && (
+                        <div className="space-y-6">
+                            {docCategories.map(cat => (
+                                <div key={cat} className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                                    <div className="p-6 border-b border-slate-100">
+                                        <h3 className="font-bold text-slate-800">{cat}</h3>
+                                    </div>
+                                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {HELP_DOCS.filter(d => d.category === cat).map(doc => (
+                                            <div key={doc.id} onClick={() => setSelectedDoc(doc)} className="p-4 border border-slate-100 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="text-2xl">{doc.icon}</div>
+                                                    <div className="flex-1">
+                                                        <div className="font-medium text-slate-800 group-hover:text-indigo-600 transition-colors">{doc.title}</div>
+                                                        <div className="text-xs text-slate-400 mt-1">{doc.desc}</div>
+                                                    </div>
+                                                    <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* 视频教程 */}
+                            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2rem] p-8 text-white">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <PlayCircle size={32} />
+                                    <div>
+                                        <h3 className="text-xl font-bold">视频教程</h3>
+                                        <p className="text-indigo-200 text-sm">观看视频快速掌握系统使用方法</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-4">
+                                    {['系统概览介绍', '报表分析教程', '配置管理指南'].map((title, i) => (
+                                        <div key={i} className="bg-white/10 rounded-xl p-4 hover:bg-white/20 transition-all cursor-pointer">
+                                            <div className="aspect-video bg-black/20 rounded-lg mb-3 flex items-center justify-center">
+                                                <PlayCircle size={32} className="opacity-70" />
+                                            </div>
+                                            <div className="font-medium">{title}</div>
+                                            <div className="text-xs text-indigo-200 mt-1">时长: {5 + i * 3} 分钟</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 帮助文档弹窗 */}
+                    {selectedDoc && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={(e) => e.target === e.currentTarget && setSelectedDoc(null)}>
+                            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+                                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-purple-50">
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-4xl">{selectedDoc.icon}</div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-slate-800">{selectedDoc.title}</h3>
+                                            <p className="text-sm text-slate-500">{selectedDoc.desc}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setSelectedDoc(null)} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                    </button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-8">
+                                    <div className="prose prose-slate prose-sm max-w-none">
+                                        {selectedDoc.content.split('\n').map((line, i) => {
+                                            if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold text-slate-800 mt-6 mb-4 pb-2 border-b border-slate-100">{line.replace('## ', '')}</h2>;
+                                            if (line.startsWith('### ')) return <h3 key={i} className="text-lg font-semibold text-slate-700 mt-5 mb-3">{line.replace('### ', '')}</h3>;
+                                            if (line.startsWith('**') && line.endsWith('**')) return <p key={i} className="font-semibold text-slate-700 mt-3">{line.replace(/\*\*/g, '')}</p>;
+                                            if (line.startsWith('- ')) return <li key={i} className="text-slate-600 ml-4 my-1">{line.replace('- ', '')}</li>;
+                                            if (line.match(/^\d+\./)) return <li key={i} className="text-slate-600 ml-4 my-1 list-decimal">{line.replace(/^\d+\.\s*/, '')}</li>;
+                                            if (line.startsWith('Q')) return <p key={i} className="font-semibold text-indigo-600 mt-4 mb-1">{line}</p>;
+                                            if (line.startsWith('A:')) return <p key={i} className="text-slate-600 mb-3 pl-4 border-l-2 border-indigo-200">{line.replace('A: ', '')}</p>;
+                                            if (line.trim() === '') return <div key={i} className="h-2"></div>;
+                                            return <p key={i} className="text-slate-600 my-2 leading-relaxed">{line}</p>;
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                                    <button onClick={() => setSelectedDoc(null)} className="px-6 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium">
+                                        我知道了
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
