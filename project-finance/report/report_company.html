@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公司经营仓</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } }, colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } } } } }</script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; } 
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; } 
+        body { overflow-x: hidden; } 
+        .row-hover-effect:hover { background-color: #f8fafc; transform: scale(1.001); transition: all 0.1s; position: relative; z-index: 10; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .toggle-checkbox:checked { right: 0; border-color: #4f46e5; } 
+        .toggle-checkbox:checked + .toggle-label { background-color: #4f46e5; }
+        .leaf-row:hover td { color: #4f46e5; font-weight: 500; background-color: #eff6ff; }
+        input:focus { outline: 2px solid #6366f1; outline-offset: 1px; }
+    </style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- 1. 核心数据定义 ---
+        // 阿米巴部门
+        const AMEBA_DEPARTMENTS = ['运营部-淘宝', '运营部-抖音', '运营部-快手', '商品部', '开发部', '产研部', '客服部', '仓储部', '人事部', '财务部'];
+
+        // 完整的三大报表数据
+        const FULL_COMPANY_REPORTS = {
+            balance: [
+                { id: 'asset', name: '一、资产总计', value: 58420000, level: 1, children: [
+                    { id: 'asset-current', name: '流动资产', value: 32500000, level: 2, children: [
+                        { id: 'c1', name: '货币资金', value: 15200000, level: 3 },
+                        { id: 'c2', name: '交易性金融资产', value: 2000000, level: 3 },
+                        { id: 'c3', name: '应收账款', value: 8300000, level: 3 },
+                        { id: 'c4', name: '预付款项', value: 1800000, level: 3 },
+                        { id: 'c5', name: '其他应收款', value: 1200000, level: 3 },
+                        { id: 'c6', name: '存货', value: 4000000, level: 3 }
+                    ]},
+                    { id: 'asset-fixed', name: '非流动资产', value: 25920000, level: 2, children: [
+                        { id: 'f1', name: '固定资产', value: 12500000, level: 3 },
+                        { id: 'f2', name: '在建工程', value: 4500000, level: 3 },
+                        { id: 'f3', name: '无形资产', value: 7800000, level: 3 },
+                        { id: 'f4', name: '长期待摊费用', value: 1120000, level: 3 }
+                    ]}
+                ]},
+                { id: 'liability', name: '二、负债合计', value: 21300000, level: 1, children: [
+                    { id: 'liab-current', name: '流动负债', value: 15100000, level: 2, children: [
+                        { id: 'l1', name: '短期借款', value: 5200000, level: 3 },
+                        { id: 'l2', name: '应付票据', value: 1800000, level: 3 },
+                        { id: 'l3', name: '应付账款', value: 6200000, level: 3 },
+                        { id: 'l4', name: '应付职工薪酬', value: 1400000, level: 3 },
+                        { id: 'l5', name: '应交税费', value: 500000, level: 3 }
+                    ]},
+                    { id: 'liab-long', name: '非流动负债', value: 6200000, level: 2, children: [
+                        { id: 'll1', name: '长期借款', value: 6200000, level: 3 }
+                    ]}
+                ]},
+                { id: 'equity', name: '三、所有者权益', value: 37120000, level: 1, children: [
+                    { id: 'e1', name: '实收资本', value: 20000000, level: 2, children: [] },
+                    { id: 'e2', name: '资本公积', value: 5000000, level: 2, children: [] },
+                    { id: 'e3', name: '盈余公积', value: 2120000, level: 2, children: [] },
+                    { id: 'e4', name: '未分配利润', value: 10000000, level: 2, children: [] }
+                ]}
+            ],
+            profit: [
+                { id: 'income', name: '一、营业收入', value: 85600000, level: 1, children: [
+                    { id: 'inc-main', name: '主营业务收入', value: 80400000, level: 2, children: [{id:'im1', name:'线上销售收入', value:60200000, level:3}, {id:'im2', name:'分销收入', value:20200000, level:3}] },
+                    { id: 'inc-other', name: '其他业务收入', value: 5200000, level: 2, children: [] }
+                ]},
+                { id: 'cost', name: '二、营业成本', value: 45800000, level: 1, children: [
+                    { id: 'cost-main', name: '主营业务成本', value: 42500000, level: 2, children: [] },
+                    { id: 'cost-other', name: '其他业务成本', value: 3300000, level: 2, children: [] }
+                ]},
+                { id: 'tax', name: '三、税金及附加', value: 550000, level: 1, children: [] },
+                { id: 'expense', name: '四、期间费用', value: 25600000, level: 1, children: [
+                    { id: 'ex-sale', name: '销售费用', value: 15500000, level: 2, children: [{id:'es1', name:'广告推广费', value:8200000, level:3}, {id:'es2', name:'平台佣金', value:5100000, level:3}, {id:'es3', name:'物流运输费', value:2200000, level:3}] },
+                    { id: 'ex-manage', name: '管理费用', value: 8100000, level: 2, children: [{id:'em1', name:'行政薪资', value:5200000, level:3}, {id:'em2', name:'办公租赁费', value:1800000, level:3}, {id:'em3', name:'差旅交通', value:1100000, level:3}] },
+                    { id: 'ex-rd', name: '研发费用', value: 1600000, level: 2, children: [{id:'er1', name:'人员薪酬', value:1200000, level:3}, {id:'er2', name:'设备折旧', value:400000, level:3}] },
+                    { id: 'ex-fin', name: '财务费用', value: 400000, level: 2, children: [{id:'ef1', name:'利息支出', value:350000, level:3}, {id:'ef2', name:'银行手续费', value:50000, level:3}] }
+                ]},
+                { id: 'profit-op', name: '五、营业利润', value: 13650000, level: 1, children: [] },
+                { id: 'profit-total', name: '六、利润总额', value: 14050000, level: 1, children: [{id:'non-op-in', name:'营业外收入', value:500000, level:2, children:[]}, {id:'non-op-out', name:'营业外支出', value:100000, level:2, children:[]}] },
+                { id: 'profit-net', name: '七、净利润', value: 10537500, level: 1, children: [] }
+            ],
+            cash: [
+                { id: 'c-op', name: '一、经营活动产生的现金流量', value: 12500000, level: 1, children: [
+                    { id: 'cop-in', name: '销售商品、提供劳务收到的现金', value: 91000000, level: 2, children: [] },
+                    { id: 'cop-out', name: '购买商品、接受劳务支付的现金', value: -78500000, level: 2, children: [] }
+                ]},
+                { id: 'c-inv', name: '二、投资活动产生的现金流量', value: -5200000, level: 1, children: [
+                    { id: 'cinv-in', name: '收回投资收到的现金', value: 1200000, level: 2, children: [] },
+                    { id: 'cinv-out', name: '购建固定资产支付的现金', value: -6400000, level: 2, children: [] }
+                ]},
+                { id: 'c-fin', name: '三、筹资活动产生的现金流量', value: 2800000, level: 1, children: [
+                    { id: 'cfin-in', name: '吸收投资收到的现金', value: 5000000, level: 2, children: [] },
+                    { id: 'cfin-out', name: '偿还债务支付的现金', value: -2200000, level: 2, children: [] }
+                ]},
+                { id: 'c-net', name: '四、现金及现金等价物净增加额', value: 10100000, level: 1, children: [] }
+            ],
+            budget: [
+                { id: 1, subject: '销售费用', budget: 16000000, actual: 15500000, percent: 96.8 },
+                { id: 2, subject: '管理费用', budget: 8500000, actual: 8100000, percent: 95.2 },
+                { id: 3, subject: '研发费用', budget: 2000000, actual: 1600000, percent: 80.0 },
+                { id: 4, subject: '财务费用', budget: 500000, actual: 400000, percent: 80.0 },
+                { id: 5, subject: '人力成本', budget: 12000000, actual: 11500000, percent: 95.8 },
+                { id: 6, subject: '办公行政', budget: 3000000, actual: 1800000, percent: 60.0 },
+                { id: 7, subject: '市场推广费', budget: 5000000, actual: 4800000, percent: 96.0 },
+                { id: 8, subject: '物流仓储费', budget: 4000000, actual: 2200000, percent: 55.0 },
+                { id: 9, subject: '差旅交通费', budget: 1500000, actual: 1100000, percent: 73.3 },
+            ]
+        };
+
+        // 模拟生成阿米巴预算数据
+        const getAmebaBudgetData = () => {
+            return AMEBA_DEPARTMENTS.map((name, index) => {
+                const baseBudget = name.includes('运营') ? 5000000 : 1000000;
+                const budget = Math.floor(baseBudget * (1 + Math.random()));
+                const actual = Math.floor(budget * (0.7 + Math.random() * 0.3));
+                return {
+                    id: index + 1, group: name, budget, actual, percent: Math.round(actual / budget * 100)
+                };
+            }).sort((a, b) => b.budget - a.budget);
+        };
+        
+        // 初始阿米巴数据
+        const INITIAL_AMEBA_BUDGET_DATA = getAmebaBudgetData();
+
+        // --- 2. 模拟明细账数据 (MOCK DATA) ---
+        const getMockAccountDetails = (itemName, totalValue) => {
+            const count = 6 + Math.floor(Math.random() * 5);
+            const details = [];
+            const types = ['银行转账', '报销单', '付款单', '收款单'];
+            const users = ['张三', '李四', '王五', '赵六'];
+            for (let i = 0; i < count; i++) {
+                const amount = Math.floor(totalValue / count * (0.8 + Math.random() * 0.4));
+                details.push({
+                    id: i + 1, date: `2025-10-${10 + i}`, docNo: `PZ-${100 + i}`,
+                    summary: `${itemName}-业务明细-${i + 1}`, type: types[i % 4],
+                    user: users[i % 4], debit: amount, credit: 0
+                });
+            }
+            return details;
+        };
+        const getMockExpenseDetails = (dept, subj) => Array.from({length:6},(_,i)=>({id:i,date:`2025-10-${10+i}`,desc:`${dept}-${subj}-报销单${i+1}`,user:['张三','李四'][i%2],amount:Math.floor(Math.random()*5000)+200}));
+
+        // --- 图标 (简化定义) ---
+        const Svg = ({ children, size = 18, className = "", ...p }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...p}>{children}</svg>;
+        const Target = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></Svg>;
+        const Users = (p) => <Svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Svg>;
+        const ChevronRight = (p) => <Svg {...p}><path d="m9 18 6-6-6-6"/></Svg>;
+        const ChevronDown = (p) => <Svg {...p}><path d="m6 9 6 6 6-6"/></Svg>;
+        const Calendar = (p) => <Svg {...p}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></Svg>;
+        const ArrowRight = (p) => <Svg {...p}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></Svg>;
+        const X = (p) => <Svg {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Svg>;
+        const Edit = (p) => <Svg {...p}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></Svg>;
+        const Save = (p) => <Svg {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Svg>;
+        const HelpCircle = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></Svg>;
+
+        // --- 通用组件 ---
+        const safeLocaleString = (val) => (val !== undefined && val !== null) ? val.toLocaleString() : '0';
+
+        // 数据来源提示组件
+        const DataSourceTooltip = ({ source, className }) => {
+            const [visible, setVisible] = useState(false);
+            
+            return (
+                <span className={`relative inline-flex items-center ml-1 -top-1 ${className}`}>
+                    <sup 
+                        className="cursor-pointer text-slate-400 hover:text-indigo-500 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); setVisible(!visible); }}
+                        title="点击查看数据来源"
+                    >
+                        <HelpCircle size={12} />
+                    </sup>
+                    {visible && (
+                        <div className="absolute left-full top-0 ml-2 w-max bg-slate-800 text-white text-xs px-3 py-2 rounded shadow-lg z-50 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                            {source}
+                            <div className="absolute left-0 top-2 -ml-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+                        </div>
+                    )}
+                    {visible && (
+                        <div className="fixed inset-0 z-40 cursor-default" onClick={(e) => { e.stopPropagation(); setVisible(false); }}></div>
+                    )}
+                </span>
+            );
+        };
+
+        const ProgressBar = ({ percent }) => {
+            let color = 'bg-emerald-500'; if (percent > 80) color = 'bg-amber-500'; if (percent > 95) color = 'bg-red-500';
+            return <div className="flex items-center gap-2 w-full"><div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className={`h-full rounded-full ${color}`} style={{width: `${percent}%`, transition: 'width 1s'}}></div></div><span className={`text-xs font-bold w-8 ${percent>95?'text-red-500':'text-slate-600'}`}>{percent}%</span></div>;
+        };
+
+        const HorizontalBarChart = ({ data }) => {
+            const maxVal = Math.max(...data.map(d => d.value)) || 1;
+            return <div className="space-y-3 w-full">{data.map((item, i) => <div key={i} className="flex items-center gap-3 text-sm"><div className="w-24 text-right text-slate-500 shrink-0 truncate" title={item.label}>{item.label}</div><div className="flex-1 h-8 bg-slate-50 rounded-lg relative overflow-hidden flex items-center px-2 group cursor-default"><div className="absolute left-0 top-0 bottom-0 bg-indigo-100 rounded-lg transition-all duration-500 group-hover:bg-indigo-200" style={{width: `${(item.value/maxVal)*100}%`}}></div><span className="relative z-10 font-mono text-indigo-700 font-bold text-xs">¥ {safeLocaleString(item.value)}</span></div></div>)}</div>;
+        };
+
+        const DateSelector = ({ year, setYear, month, setMonth }) => (
+            <div className="flex items-center bg-slate-100 rounded-lg p-1 gap-1">
+                <div className="relative"><select value={year} onChange={(e) => setYear(e.target.value)} className="appearance-none bg-transparent pl-3 pr-6 py-1 text-sm font-medium text-slate-700 focus:outline-none cursor-pointer hover:text-indigo-600 transition-colors"><option value="2025">2025年</option><option value="2024">2024年</option></select></div>
+                <div className="w-px h-4 bg-slate-300"></div>
+                <div className="relative"><select value={month} onChange={(e) => setMonth(e.target.value)} className="appearance-none bg-transparent pl-3 pr-6 py-1 text-sm font-medium text-slate-700 focus:outline-none cursor-pointer hover:text-indigo-600 transition-colors"><option value="all">全部(年度)</option>{Array.from({length: 12}, (_, i) => i + 1).map(m => (<option key={m} value={m}>{m}月</option>))}</select></div>
+            </div>
+        );
+
+        const ToggleSwitch = ({ checked, onChange, label }) => (
+            <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => onChange(!checked)}>
+                <span className={`text-sm font-medium transition-colors ${checked ? 'text-indigo-600' : 'text-slate-500'}`}>{label}</span>
+                <div className={`w-10 h-5 flex items-center rounded-full p-1 duration-300 ease-in-out border ${checked ? 'bg-indigo-600 border-indigo-600' : 'bg-slate-200 border-slate-200'}`}><div className={`bg-white w-3 h-3 rounded-full shadow-md transform duration-300 ease-in-out ${checked ? 'translate-x-5' : ''}`}></div></div>
+            </div>
+        );
+
+        // 树形表格组件 (Tree Table)
+        const TreeTable = ({ data, title, expandAll, dateSeed, isAnnual, onLeafClick }) => {
+            const [expandedIds, setExpandedIds] = useState(new Set());
+
+            useEffect(() => {
+                if (expandAll) {
+                    const allIds = new Set();
+                    const collectIds = (items) => { items.forEach(item => { if (item.children && item.children.length > 0) { allIds.add(item.id); collectIds(item.children); } }); };
+                    collectIds(data);
+                    setExpandedIds(allIds);
+                } else { setExpandedIds(new Set()); }
+            }, [expandAll, data]);
+
+            const toggleExpand = (id) => {
+                const newSet = new Set(expandedIds);
+                if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+                setExpandedIds(newSet);
+            };
+
+            const getDynamicValue = (val) => {
+                if (isAnnual) return val; 
+                return Math.floor((val / 12) * (1 + (dateSeed % 10 - 5) / 100)); 
+            };
+
+            const renderRow = (item, indentLevel = 0) => {
+                const hasChildren = item.children && item.children.length > 0;
+                const isExpanded = expandedIds.has(item.id);
+                const currentVal = getDynamicValue(item.value);
+                const prevVal = Math.floor(currentVal * 0.9); 
+                
+                return (
+                    <React.Fragment key={item.id}>
+                        <tr 
+                            className={`group transition-colors border-b border-slate-50 
+                                ${indentLevel === 0 ? 'bg-white font-semibold' : 'bg-slate-50/20'} 
+                                ${!hasChildren ? 'hover:bg-indigo-50 cursor-pointer leaf-row' : 'hover:bg-slate-50 cursor-default'}`}
+                            onClick={() => {
+                                if (hasChildren) toggleExpand(item.id);
+                                else onLeafClick(item, currentVal); 
+                            }}
+                        >
+                            <td className="px-6 py-3.5 text-left">
+                                <div className="flex items-center" style={{ paddingLeft: `${indentLevel * 20}px` }}>
+                                    <div className="w-6 h-6 mr-1 flex items-center justify-center text-slate-400">
+                                        {hasChildren ? (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <div className="w-1 h-1 rounded-full bg-slate-300"></div>}
+                                    </div>
+                                    <span className={`${indentLevel === 0 ? 'text-slate-800' : 'text-slate-600'} flex items-center gap-2`}>
+                                        {item.name}
+                                        {!hasChildren && <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400"/>}
+                                    </span>
+                                </div>
+                            </td>
+                            <td className="px-6 py-3.5 text-right font-mono text-slate-700">¥ {safeLocaleString(currentVal)}</td>
+                            <td className="px-6 py-3.5 text-right font-mono text-slate-400">¥ {safeLocaleString(prevVal)}</td>
+                        </tr>
+                        {isExpanded && hasChildren && item.children.map(child => renderRow(child, indentLevel + 1))}
+                    </React.Fragment>
+                );
+            };
+
+            return (
+                <div className="animate-fade-in border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                    <table className="w-full text-sm">
+                        <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                            <tr><th className="px-6 py-4 text-left pl-12">项目名称</th><th className="px-6 py-4 text-right">期末余额 (元)</th><th className="px-6 py-4 text-right">年初余额 (元)</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">{data.map(item => renderRow(item))}</tbody>
+                    </table>
+                </div>
+            );
+        };
+
+        // 预算调整表格组件
+        const BudgetAdjustTable = ({ data, onSave, onCancel, periodLabel }) => {
+            const [editData, setEditData] = useState(JSON.parse(JSON.stringify(data)));
+
+            const handleBudgetChange = (id, newValue) => {
+                setEditData(prev => prev.map(item => item.id === id ? { ...item, budget: Number(newValue) } : item));
+            };
+
+            return (
+                <div className="animate-fade-in bg-white rounded-xl border border-indigo-100 shadow-lg p-6 mb-8">
+                    <div className="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Edit size={18} className="text-indigo-600"/> 预算调整视图</h3>
+                            <p className="text-sm text-slate-500 mt-1">调整期间: <span className="font-bold text-indigo-600">{periodLabel}</span></p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={onCancel} className="px-4 py-2 border rounded-lg text-sm text-slate-600 hover:bg-slate-50">取消</button>
+                            <button onClick={() => onSave(editData)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 shadow-md flex items-center gap-2"><Save size={16}/> 保存调整</button>
+                        </div>
+                    </div>
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/30">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-100 text-slate-600">
+                                <tr>
+                                    <th className="px-6 py-4 text-left">阿米巴单元</th>
+                                    <th className="px-6 py-4 text-right">当前预算 (元)</th>
+                                    <th className="px-6 py-4 text-right">调整后预算 (元)</th>
+                                    <th className="px-6 py-4 text-left">调整说明</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 bg-white">
+                                {editData.map(item => (
+                                    <tr key={item.id} className="hover:bg-slate-50">
+                                        <td className="px-6 py-3 font-medium text-slate-700">{item.group}</td>
+                                        <td className="px-6 py-3 text-right font-mono text-slate-500">¥ {item.budget.toLocaleString()}</td>
+                                        <td className="px-6 py-3 text-right">
+                                            <input 
+                                                type="number" 
+                                                value={item.budget}
+                                                onChange={(e) => handleBudgetChange(item.id, e.target.value)}
+                                                className="w-32 text-right px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                                            />
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            <input type="text" placeholder="请输入调整原因..." className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 placeholder-slate-300 focus:border-indigo-400"/>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [subTab, setSubTab] = useState('balance');
+            const [selectedYear, setSelectedYear] = useState('2025');
+            const [selectedMonth, setSelectedMonth] = useState('all');
+            const [isAllExpanded, setIsAllExpanded] = useState(true);
+            
+            // 预算调整相关状态
+            const [isBudgetEditing, setIsBudgetEditing] = useState(false);
+            const [amebaBudgetData, setAmebaBudgetData] = useState(INITIAL_AMEBA_BUDGET_DATA);
+
+            // 弹窗状态
+            const [budgetSubjectDetailModal, setBudgetSubjectDetailModal] = useState(null);
+            const [amebaBudgetDetailModal, setAmebaBudgetDetailModal] = useState(null);
+            const [expenseDetailModal, setExpenseDetailModal] = useState(null);
+            const [reportDetailModal, setReportDetailModal] = useState(null);
+
+            const handleBackdropClick = (e, setter) => { if (e.target === e.currentTarget) setter(null); };
+            const dateSeed = selectedMonth === 'all' ? 0 : (parseInt(selectedYear) + parseInt(selectedMonth));
+            const isAnnual = selectedMonth === 'all';
+            const periodLabel = `${selectedYear}年 ${selectedMonth === 'all' ? '全年' : selectedMonth + '月'}`;
+
+            // 生成科目预算数据
+            const currentCompanyBudget = useMemo(() => {
+                return FULL_COMPANY_REPORTS.budget.map(item => {
+                    const factor = isAnnual ? 1 : (1/12);
+                    const dynamicBudget = Math.floor(item.budget * factor);
+                    const dynamicActual = Math.floor(item.actual * factor * (1 + (dateSeed % 5 - 2.5) / 100));
+                    return { ...item, budget: dynamicBudget, actual: dynamicActual, percent: Math.min(100, Math.round(dynamicActual / dynamicBudget * 100)) };
+                });
+            }, [dateSeed, isAnnual]);
+
+            // 生成阿米巴预算数据 (基于本地状态 amebaBudgetData)
+            const currentAmebaBudgetDisplay = useMemo(() => {
+                const factor = isAnnual ? 1 : (1/12);
+                return amebaBudgetData.map(d => ({
+                    ...d,
+                    budget: Math.floor(d.budget * factor),
+                    actual: Math.floor(d.actual * factor * (1 + (dateSeed % 4 - 2) / 100)),
+                    percent: Math.min(100, Math.round((d.actual * factor) / (d.budget * factor) * 100))
+                }));
+            }, [amebaBudgetData, dateSeed, isAnnual]);
+
+            const handleSaveBudget = (newData) => {
+                // 更新本地状态: 将视图中的调整应用回 amebaBudgetData
+                setAmebaBudgetData(prev => prev.map(p => {
+                    const matched = newData.find(n => n.id === p.id);
+                    // 简单逻辑: 如果当前是年度视图，直接更新；如果是月度，则更新年度预算 = 月度 * 12
+                    const newAnnualBudget = isAnnual ? matched.budget : matched.budget * 12;
+                    return matched ? { ...p, budget: newAnnualBudget } : p;
+                }));
+                setIsBudgetEditing(false);
+            };
+
+            const handleReportItemClick = (item, value) => {
+                const details = getMockAccountDetails(item.name, value);
+                setReportDetailModal({ name: item.name, value: value, details: details });
+            };
+
+            const renderTabButton = (key, label, source) => (
+                <button 
+                    key={key} 
+                    onClick={()=>{setSubTab(key); setIsBudgetEditing(false);}} 
+                    className={`pb-2 text-sm font-medium transition-colors border-b-2 flex items-center gap-1 ${subTab===key?'border-indigo-600 text-indigo-600':'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    {label}
+                    <DataSourceTooltip source={source} />
+                </button>
+            );
+
+            return (
+                <div className="p-8 max-w-7xl mx-auto animate-fade-in">
+                    <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div><h2 className="text-2xl font-bold text-slate-800">公司经营仓</h2><p className="text-slate-500 text-sm mt-1">全公司财务状况与预算执行监控</p></div>
+                        <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2 px-2 text-slate-600 text-sm"><Calendar size={16} className="text-indigo-500"/><span className="font-medium">报表期间:</span></div>
+                            <DateSelector year={selectedYear} setYear={setSelectedYear} month={selectedMonth} setMonth={setSelectedMonth} />
+                            {subTab !== 'budget' && <><div className="w-px h-6 bg-slate-200 mx-2"></div><ToggleSwitch label="全部展开" checked={isAllExpanded} onChange={setIsAllExpanded} /></>}
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8 min-h-[600px]">
+                        <div className="flex gap-8 border-b border-slate-100 mb-8">
+                            {renderTabButton('balance', '资产负债表', '数据来源：ads_BalanceSheet')}
+                            {renderTabButton('profit', '利润表', '数据来源：ads_IncomeStatement')}
+                            {renderTabButton('cash', '现金流量表', '数据来源：ads_CashFlowStatement')}
+                            {renderTabButton('budget', '预算监控', '数据来源：ads_BudgetMonitoring')}
+                        </div>
+
+                        {subTab === 'balance' && <TreeTable title="资产负债表" data={FULL_COMPANY_REPORTS.balance} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} />}
+                        {subTab === 'profit' && <TreeTable title="利润表" data={FULL_COMPANY_REPORTS.profit} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} />}
+                        {subTab === 'cash' && <TreeTable title="现金流量表" data={FULL_COMPANY_REPORTS.cash} expandAll={isAllExpanded} dateSeed={dateSeed} isAnnual={isAnnual} onLeafClick={handleReportItemClick} />}
+
+                        {subTab === 'budget' && (
+                            <div className="space-y-10 animate-fade-in">
+                                {isBudgetEditing ? (
+                                    <BudgetAdjustTable 
+                                        data={currentAmebaBudgetDisplay} 
+                                        periodLabel={periodLabel}
+                                        onSave={handleSaveBudget}
+                                        onCancel={() => setIsBudgetEditing(false)}
+                                    />
+                                ) : (
+                                    <>
+                                        {/* 板块 1: 阿米巴部门预算监控 (上方) */}
+                                        <div>
+                                            <div className="flex justify-between mb-4">
+                                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Users size={18} className="text-emerald-600"/> 阿米巴部门预算监控</h3>
+                                                <button 
+                                                    onClick={() => setIsBudgetEditing(true)}
+                                                    className="px-4 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg text-sm hover:bg-indigo-100 hover:border-indigo-200 flex items-center gap-2 transition-all"
+                                                >
+                                                    <Edit size={14}/> 调整预算
+                                                </button>
+                                            </div>
+                                            <div className="border border-slate-200 rounded-xl overflow-hidden">
+                                                <table className="w-full text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-6 py-4 text-left">阿米巴单元</th><th className="px-6 py-4 text-right">部门预算</th><th className="px-6 py-4 text-right">实际支出</th><th className="px-6 py-4 w-1/3">进度</th></tr></thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {currentAmebaBudgetDisplay.map(d=><tr key={d.id} className="cursor-pointer row-hover-effect" onClick={()=>setAmebaBudgetDetailModal(d)}><td className="px-6 py-4 font-bold text-slate-700 flex gap-2 items-center">{d.group}<ArrowRight size={14} className="text-slate-300"/></td><td className="px-6 py-4 text-right font-mono text-slate-500">¥ {safeLocaleString(d.budget)}</td><td className="px-6 py-4 text-right font-mono font-bold">¥ {safeLocaleString(d.actual)}</td><td className="px-6 py-4"><ProgressBar percent={d.percent}/></td></tr>)}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
+                                        {/* 板块 2: 财务科目预算监控 (下方) */}
+                                        <div>
+                                            <div className="flex justify-between mb-4">
+                                                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Target size={18} className="text-indigo-600"/> 财务科目预算监控</h3>
+                                            </div>
+                                            <div className="border border-slate-200 rounded-xl overflow-hidden">
+                                                <table className="w-full text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-6 py-4 text-left">财务科目</th><th className="px-6 py-4 text-right">预算额</th><th className="px-6 py-4 text-right">已使用</th><th className="px-6 py-4 w-1/3">进度</th></tr></thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {currentCompanyBudget.map(d=><tr key={d.id} className="cursor-pointer row-hover-effect" onClick={()=>setBudgetSubjectDetailModal(d)}><td className="px-6 py-4 font-medium text-slate-700 flex gap-2 items-center">{d.subject}<ArrowRight size={14} className="text-slate-300"/></td><td className="px-6 py-4 text-right font-mono text-slate-500">¥ {safeLocaleString(d.budget)}</td><td className="px-6 py-4 text-right font-mono font-bold">¥ {safeLocaleString(d.actual)}</td><td className="px-6 py-4"><ProgressBar percent={d.percent}/></td></tr>)}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Modal 1: 科目详情 */}
+                    {budgetSubjectDetailModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-fade-in" onClick={(e) => handleBackdropClick(e, setBudgetSubjectDetailModal)}>
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                <div className="p-6 border-b flex justify-between items-center"><div><h3 className="text-xl font-bold">{budgetSubjectDetailModal.subject} - 部门执行明细</h3></div><button onClick={()=>setBudgetSubjectDetailModal(null)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button></div>
+                                <div className="p-8 overflow-y-auto space-y-8">
+                                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100"><h4 className="font-bold mb-4 text-slate-700">部门消耗分布 Top 5</h4><HorizontalBarChart data={AMEBA_DEPARTMENTS.slice(0,5).map(d=>({label:d, value:Math.floor(Math.random()*(budgetSubjectDetailModal.actual/3))+10000})).sort((a,b)=>b.value-a.value)}/></div>
+                                    <div className="border border-slate-200 rounded-xl overflow-hidden"><table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="px-6 py-3 text-left">部门</th><th className="px-6 py-3 text-right">金额</th></tr></thead><tbody>{AMEBA_DEPARTMENTS.slice(0,5).map((d,i)=><tr key={i} className="border-t"><td className="px-6 py-3">{d}</td><td className="px-6 py-3 text-right font-mono">¥ {safeLocaleString(Math.floor(Math.random()*50000))}</td></tr>)}</tbody></table></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal 2: 部门详情 */}
+                    {amebaBudgetDetailModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-fade-in" onClick={(e) => handleBackdropClick(e, setAmebaBudgetDetailModal)}>
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                <div className="p-6 border-b flex justify-between items-center">
+                                    <div>
+                                        <h3 className="text-xl font-bold flex items-center">
+                                            {amebaBudgetDetailModal.group} - 预算明细
+                                            <DataSourceTooltip source="数据来源: dws_DepartmentalBudgetConsumption" />
+                                        </h3>
+                                        <p className="text-sm text-slate-500">点击科目查看具体费用清单</p>
+                                    </div>
+                                    <button onClick={()=>setAmebaBudgetDetailModal(null)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button>
+                                </div>
+                                <div className="overflow-y-auto"><table className="w-full text-sm"><thead className="bg-slate-50 sticky top-0"><tr><th className="px-6 py-4 text-left">科目</th><th className="px-6 py-4 text-right">预算</th><th className="px-6 py-4 text-right">支出</th><th className="px-6 py-4 w-1/3">进度</th></tr></thead><tbody className="divide-y">{FULL_COMPANY_REPORTS.budget.map((d,i)=><tr key={i} className="hover:bg-indigo-50 cursor-pointer" onClick={()=>setExpenseDetailModal({dept:amebaBudgetDetailModal.group, subj:d.subject})}><td className="px-6 py-4 font-medium flex gap-2 items-center">{d.subject}<ArrowRight size={12} className="text-slate-300"/></td><td className="px-6 py-4 text-right text-slate-500">¥ {safeLocaleString(Math.floor(d.budget/10))}</td><td className="px-6 py-4 text-right font-bold">¥ {safeLocaleString(Math.floor(d.actual/10))}</td><td className="px-6 py-4"><ProgressBar percent={d.percent}/></td></tr>)}</tbody></table></div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal 3: 费用明细 */}
+                    {expenseDetailModal && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-fade-in" onClick={(e) => handleBackdropClick(e, setExpenseDetailModal)}>
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                <div className="p-6 border-b flex justify-between items-center">
+                                    <div>
+                                        <div className="flex items-center gap-2 text-xs text-slate-500 mb-1"><span>{expenseDetailModal.dept}</span> <ArrowRight size={10}/> <span>{expenseDetailModal.subj}</span></div>
+                                        <h3 className="text-xl font-bold flex items-center">
+                                            费用支出明细单
+                                            <DataSourceTooltip source="数据来源: dwd_Expense_Fact" />
+                                        </h3>
+                                    </div>
+                                    <button onClick={()=>setExpenseDetailModal(null)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button>
+                                </div>
+                                <div className="overflow-y-auto"><table className="w-full text-sm"><thead className="bg-slate-50 sticky top-0"><tr><th className="px-6 py-3 text-left">日期</th><th className="px-6 py-3 text-left">摘要</th><th className="px-6 py-3 text-left">报销人</th><th className="px-6 py-3 text-right">金额</th></tr></thead><tbody className="divide-y">{getMockExpenseDetails(expenseDetailModal.dept, expenseDetailModal.subj).map(d=><tr key={d.id} className="hover:bg-slate-50"><td className="px-6 py-3 text-slate-500 font-mono">{d.date}</td><td className="px-6 py-3 text-slate-700">{d.desc}</td><td className="px-6 py-3">{d.user}</td><td className="px-6 py-3 text-right font-medium">¥ {safeLocaleString(d.amount)}</td></tr>)}</tbody></table></div>
+                                <div className="p-4 border-t bg-slate-50 text-right"><button onClick={()=>setExpenseDetailModal(null)} className="px-4 py-2 bg-white border rounded-lg text-sm text-slate-600 hover:bg-slate-100">返回上一级</button></div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal 4: 报表数字明细 */}
+                    {reportDetailModal && (
+                         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-fade-in" onClick={(e) => handleBackdropClick(e, setReportDetailModal)}>
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                                <div className="p-6 border-b flex justify-between items-center bg-slate-50/50">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1"><span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">科目明细账</span></div>
+                                        <h3 className="text-xl font-bold text-slate-800 flex items-center">
+                                            {reportDetailModal.name}
+                                            <DataSourceTooltip source={`数据来源: ${subTab === 'balance' ? 'dws_BalanceSheet_Detail' : subTab === 'profit' ? 'dws_IncomeStatement_Detail' : 'dws_CashFlowStatement_Detail'}`} />
+                                        </h3>
+                                    </div>
+                                    <div className="text-right mr-6"><div className="text-xs text-slate-500">当前余额</div><div className="text-xl font-mono font-bold text-indigo-600">¥ {safeLocaleString(reportDetailModal.value)}</div></div>
+                                    <button onClick={()=>setReportDetailModal(null)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button>
+                                </div>
+                                <div className="overflow-y-auto p-0"><table className="w-full text-sm"><thead className="bg-slate-50 text-slate-500 sticky top-0 z-10 shadow-sm"><tr><th className="px-6 py-3 text-left w-32">日期</th><th className="px-6 py-3 text-left w-40">凭证号</th><th className="px-6 py-3 text-left">摘要</th><th className="px-6 py-3 text-left w-24">类型</th><th className="px-6 py-3 text-right w-32">借方金额</th><th className="px-6 py-3 text-right w-32">贷方金额</th></tr></thead><tbody className="divide-y divide-slate-100">{reportDetailModal.details.map((d, i) => (<tr key={d.id} className="hover:bg-indigo-50/30 transition-colors"><td className="px-6 py-3 font-mono text-slate-500">{d.date}</td><td className="px-6 py-3 font-mono text-slate-500 text-xs">{d.docNo}</td><td className="px-6 py-3 text-slate-700 font-medium">{d.summary}</td><td className="px-6 py-3"><span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">{d.type}</span></td><td className="px-6 py-3 text-right font-mono text-slate-700">{d.debit > 0 ? '¥ ' + safeLocaleString(d.debit) : '-'}</td><td className="px-6 py-3 text-right font-mono text-slate-700">{d.credit > 0 ? '¥ ' + safeLocaleString(d.credit) : '-'}</td></tr>))}</tbody></table></div>
+                                <div className="p-4 bg-slate-50 border-t text-right text-xs text-slate-400">共 {reportDetailModal.details.length} 条记录</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

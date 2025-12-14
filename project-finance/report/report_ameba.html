@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阿米巴经营仓</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } }, colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } } } } }</script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; } 
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; } 
+        body { overflow-x: hidden; } 
+        .row-hover-effect:hover { background-color: #f8fafc; transform: scale(1.002); transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.03); position: relative; z-index: 10; cursor: pointer; }
+        .chart-hover-scale:hover { transform: scale(1.02); transition: transform 0.3s; }
+    </style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        // --- 1. 基础数据定义 (写死) ---
+        const AMEBA_DEPARTMENTS = ['运营部-淘宝', '运营部-抖音', '运营部-快手', '商品部', '开发部', '产研部', '客服部', '仓储部', '人事部', '财务部'];
+        
+        // --- 2. 下钻详情数据生成器 ---
+        // 生成月度趋势数据
+        const getAmebaTrendData = (baseIncome) => Array.from({ length: 12 }, (_, i) => {
+            const income = Math.floor(baseIncome / 12 * (0.8 + Math.random() * 0.4));
+            const cost = Math.floor(income * (0.6 + Math.random() * 0.2));
+            return { month: `${i + 1}月`, income, cost, profit: income - cost };
+        });
+
+        // 生成成本结构数据
+        const getCostStructure = () => [
+            { label: '人力成本', percent: 0.4, color: '#6366f1' },
+            { label: '营销推广', percent: 0.3, color: '#3b82f6' },
+            { label: '办公分摊', percent: 0.15, color: '#f59e0b' },
+            { label: '其他杂项', percent: 0.15, color: '#cbd5e1' }
+        ];
+
+        // 生成专属损益表数据
+        const getAmebaPnL = (income, directCost, allocatedCost) => [
+            { name: '一、经营收入', value: income, type: 'income', level: 1 },
+            { name: '二、可控成本 (直接成本)', value: directCost, type: 'cost', level: 1 },
+            { name: '人力成本', value: Math.floor(directCost * 0.6), type: 'cost', level: 2 },
+            { name: '业务费用', value: Math.floor(directCost * 0.3), type: 'cost', level: 2 },
+            { name: '其他直接支出', value: Math.floor(directCost * 0.1), type: 'cost', level: 2 },
+            { name: '三、边际贡献', value: income - directCost, type: 'profit', level: 1, highlight: true },
+            { name: '四、分摊/交易成本', value: allocatedCost, type: 'cost', level: 1 },
+            { name: '房租水电分摊', value: Math.floor(allocatedCost * 0.4), type: 'cost', level: 2 },
+            { name: '中台服务分摊', value: Math.floor(allocatedCost * 0.4), type: 'cost', level: 2 },
+            { name: '资金占用费', value: Math.floor(allocatedCost * 0.2), type: 'cost', level: 2 },
+            { name: '五、核算利润', value: income - directCost - allocatedCost, type: 'profit', level: 1, highlight: true, final: true }
+        ];
+
+        // 生成科目明细数据
+        const getDetailData = (name, total) => Array.from({ length: 8 }, (_, i) => ({
+            id: i,
+            date: `2025-10-${10 + i}`,
+            desc: `${name} - 专项业务明细 #${1001 + i}`,
+            type: name.includes('收入') ? '入账' : '支出',
+            user: ['张三', '李四', '王五'][i % 3],
+            amount: Math.floor(total / 10 * (0.8 + Math.random() * 0.4))
+        }));
+
+        // --- 图标 (简化定义) ---
+        const Svg = ({ children, size = 20, className = "", ...p }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...p}>{children}</svg>;
+        const TrendingUp = (p) => <Svg {...p}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></Svg>;
+        const Users = (p) => <Svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Svg>;
+        const PieChart = (p) => <Svg {...p}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></Svg>;
+        const FileSpreadsheet = (p) => <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></Svg>;
+        const BarChart2 = (p) => <Svg {...p}><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></Svg>;
+        const ArrowRight = (p) => <Svg {...p}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></Svg>;
+        const X = (p) => <Svg {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Svg>;
+        const Layers = (p) => <Svg {...p}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></Svg>;
+        const ChevronRight = (p) => <Svg {...p}><path d="m9 18 6-6-6-6"/></Svg>;
+        const Calendar = (p) => <Svg {...p}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></Svg>;
+        const PieChartIcon = PieChart;
+
+        const safeLocaleString = (val) => (val !== undefined && val !== null) ? val.toLocaleString() : '0';
+
+        // 年月选择器组件
+        const DateSelector = ({ year, setYear, month, setMonth }) => (
+            <div className="flex items-center bg-slate-100 rounded-lg p-1 gap-1">
+                <div className="relative">
+                    <select value={year} onChange={(e) => setYear(e.target.value)} className="appearance-none bg-transparent pl-3 pr-6 py-1 text-sm font-medium text-slate-700 focus:outline-none cursor-pointer hover:text-indigo-600 transition-colors">
+                        <option value="2025">2025年</option>
+                        <option value="2024">2024年</option>
+                        <option value="2023">2023年</option>
+                    </select>
+                </div>
+                <div className="w-px h-4 bg-slate-300"></div>
+                <div className="relative">
+                    <select value={month} onChange={(e) => setMonth(e.target.value)} className="appearance-none bg-transparent pl-3 pr-6 py-1 text-sm font-medium text-slate-700 focus:outline-none cursor-pointer hover:text-indigo-600 transition-colors">
+                        <option value="all">全部(年度)</option>
+                        {Array.from({length: 12}, (_, i) => i + 1).map(m => (
+                            <option key={m} value={m}>{m}月</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+        );
+
+        // 组合图表 (趋势分析)
+        const ComboChart = ({ data }) => {
+            const [hoveredItem, setHoveredItem] = useState(null);
+            const h = 220; const w = 800; const p = 40; const xStep = (w - p * 2) / (data.length - 1);
+            const maxVal = Math.max(...data.map(d => d.income)) * 1.1;
+            const getY = (val) => h - p - (val / maxVal) * (h - p * 2);
+            
+            const pointsIncome = data.map((d, i) => `${p + i * xStep},${getY(d.income)}`).join(' ');
+            const pointsCost = data.map((d, i) => `${p + i * xStep},${getY(d.cost)}`).join(' ');
+
+            return (
+                <div className="w-full overflow-x-auto">
+                    <div className="min-w-[600px] relative">
+                        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto" onMouseLeave={() => setHoveredItem(null)}>
+                            <line x1={p} y1={h - p} x2={w - p} y2={h - p} stroke="#e2e8f0" />
+                            <line x1={p} y1={p} x2={w - p} y2={p} stroke="#e2e8f0" strokeDasharray="4 4" />
+                            {hoveredItem !== null && <line x1={p + hoveredItem * xStep} y1={p} x2={p + hoveredItem * xStep} y2={h - p} stroke="#cbd5e1" strokeDasharray="2 2" strokeWidth="1"/>}
+                            
+                            {/* Profit Bars */}
+                            {data.map((d, i) => (
+                                <g key={i} onMouseEnter={() => setHoveredItem(i)}>
+                                    <rect x={p + i * xStep - 8} y={getY(d.profit)} width={16} height={(h - p) - getY(d.profit)} fill="#10b981" opacity={hoveredItem===i?0.8:0.3} rx="2"/>
+                                    <rect x={p + i * xStep - xStep/2} y={p} width={xStep} height={h-p} fill="transparent" />
+                                </g>
+                            ))}
+                            {/* Lines */}
+                            <polyline points={pointsIncome} fill="none" stroke="#6366f1" strokeWidth="2" className="pointer-events-none" />
+                            <polyline points={pointsCost} fill="none" stroke="#ef4444" strokeWidth="2" className="pointer-events-none" />
+                            {/* X Axis */}
+                            {data.map((d, i) => (
+                                <text key={i} x={p + i * xStep} y={h - 10} fontSize="10" textAnchor="middle" fill={hoveredItem===i ? "#475569" : "#94a3b8"} fontWeight={hoveredItem===i?"bold":"normal"}>{d.month}</text>
+                            ))}
+                        </svg>
+                        {hoveredItem !== null && (
+                            <div className="absolute bg-white p-3 rounded-xl shadow-xl border border-slate-100 text-xs pointer-events-none z-30 animate-fade-in" style={{ left: `${(p + hoveredItem * xStep) / w * 100}%`, top: '5%', transform: 'translateX(-50%)', minWidth: '140px' }}>
+                                <div className="font-bold mb-2 border-b pb-1">{data[hoveredItem].month} 经营数据</div>
+                                <div className="space-y-1">
+                                    <div className="flex justify-between text-indigo-600"><span>收入</span><span>¥{data[hoveredItem].income.toLocaleString()}</span></div>
+                                    <div className="flex justify-between text-red-500"><span>成本</span><span>¥{data[hoveredItem].cost.toLocaleString()}</span></div>
+                                    <div className="flex justify-between text-emerald-600 font-bold"><span>利润</span><span>¥{data[hoveredItem].profit.toLocaleString()}</span></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex justify-center gap-6 text-xs mt-2 pb-2">
+                        <div className="flex items-center gap-1"><div className="w-3 h-1 bg-indigo-500 rounded"></div> 收入</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-1 bg-red-500 rounded"></div> 成本</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-400 opacity-30 rounded"></div> 核算利润</div>
+                    </div>
+                </div>
+            );
+        };
+
+        // 饼图组件
+        const InteractivePieChart = ({ data }) => {
+            const [hoveredIndex, setHoveredIndex] = useState(null);
+            let cumulativePercent = 0;
+            const getCoordinates = (percent) => [Math.cos(2 * Math.PI * percent), Math.sin(2 * Math.PI * percent)];
+            return (
+                <div className="flex items-center justify-center gap-6 h-40">
+                    <div className="w-32 h-32 relative shrink-0"><svg viewBox="-1.2 -1.2 2.4 2.4" style={{ transform: 'rotate(-90deg)' }}>
+                        {data.map((slice, i) => {
+                            const [sx, sy] = getCoordinates(cumulativePercent);
+                            cumulativePercent += slice.percent;
+                            const [ex, ey] = getCoordinates(cumulativePercent);
+                            const largeArc = slice.percent > 0.5 ? 1 : 0;
+                            return <path key={i} d={`M 0 0 L ${sx} ${sy} A 1 1 0 ${largeArc} 1 ${ex} ${ey} Z`} fill={slice.color} stroke="white" strokeWidth="0.05" className="transition-transform duration-300 cursor-pointer" style={{ transform: hoveredIndex === i ? 'scale(1.1)' : 'scale(1)' }} onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)}/>
+                        })}
+                        <circle cx="0" cy="0" r="0.6" fill="white" className="pointer-events-none"/>
+                    </svg></div>
+                    <div className="flex-1 space-y-2 text-xs">{data.map((slice, i) => <div key={i} className={`flex justify-between px-2 py-1 rounded cursor-pointer ${hoveredIndex === i ? 'bg-slate-50 scale-105' : ''}`} onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)}><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: slice.color }}></div><span className="text-slate-500">{slice.label}</span></div><span className="font-bold">{(slice.percent * 100).toFixed(0)}%</span></div>)}</div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [selectedAmeba, setSelectedAmeba] = useState(null);
+            const [detailModalItem, setDetailModalItem] = useState(null); // 第三级明细弹窗
+            const [selectedYear, setSelectedYear] = useState('2025');
+            const [selectedMonth, setSelectedMonth] = useState('all');
+
+            // 根据年月计算随机种子
+            const dateSeed = selectedMonth === 'all' ? 0 : (parseInt(selectedYear) + parseInt(selectedMonth));
+            const isAnnual = selectedMonth === 'all';
+            const periodLabel = `${selectedYear}年 ${selectedMonth === 'all' ? '全年' : selectedMonth + '月'}`;
+
+            // 动态计算数据
+            const currentAmebaData = useMemo(() => {
+                return AMEBA_DEPARTMENTS.map((name, index) => {
+                    // 模拟数据生成 (根据 dateSeed 变化)
+                    let income = name.includes('运营') ? Math.floor(Math.random() * 2000000) + 1000000 : Math.floor(Math.random() * 500000); 
+                    if (!isAnnual) {
+                        // 月度数据是年度的 1/12 左右，加随机波动
+                         income = Math.floor(income / 12 * (1 + (dateSeed % 5 - 2) / 10));
+                    }
+                    
+                    const directCost = Math.floor(income * 0.3) + 50000; 
+                    const allocatedCost = Math.floor(income * 0.15) + 20000; 
+                    const totalCost = directCost + allocatedCost;
+                    const profit = income - totalCost;
+                    return { 
+                        id: index + 1, 
+                        group: name, 
+                        income, 
+                        directCost, 
+                        allocatedCost, 
+                        totalCost, 
+                        profit, 
+                        ratio: income > 0 ? (profit / income * 100).toFixed(1) + '%' : '0%' 
+                    };
+                }).sort((a,b) => b.profit - a.profit);
+            }, [dateSeed, isAnnual]);
+
+            // 计算总利润
+            const totalProfit = currentAmebaData.reduce((acc, curr) => acc + curr.profit, 0);
+            const avgRatio = (currentAmebaData.reduce((acc, curr) => acc + parseFloat(curr.ratio), 0) / currentAmebaData.length).toFixed(1) + '%';
+
+            // 生成选中单元的详情数据
+            const detailData = useMemo(() => {
+                if (!selectedAmeba) return null;
+                return {
+                    trend: getAmebaTrendData(selectedAmeba.income),
+                    costStructure: getCostStructure(),
+                    pnl: getAmebaPnL(selectedAmeba.income, selectedAmeba.directCost, selectedAmeba.allocatedCost)
+                };
+            }, [selectedAmeba]);
+
+            const closeOnBackdrop = (setter) => (e) => { if (e.target === e.currentTarget) setter(null); };
+
+            return (
+                <div className="p-8 max-w-7xl mx-auto animate-fade-in">
+                    {/* 标题栏 + 筛选器 */}
+                    <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800">阿米巴经营仓</h2>
+                            <p className="text-slate-500 text-sm mt-1">各最小经营单元核算数据</p>
+                        </div>
+                        <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2 px-2 text-slate-600 text-sm"><Calendar size={16} className="text-indigo-500"/><span className="font-medium">报表期间:</span></div>
+                            <DateSelector year={selectedYear} setYear={setSelectedYear} month={selectedMonth} setMonth={setSelectedMonth} />
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8 min-h-[500px]">
+                        {/* 顶部统计卡片 */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div className="bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
+                                <div className="flex items-center gap-3 mb-2 opacity-90"><Users size={20}/><span>参与巴组</span></div>
+                                <div className="text-3xl font-bold">{AMEBA_DEPARTMENTS.length} 个</div>
+                            </div>
+                            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                                <div className="flex items-center gap-3 mb-2 text-slate-500"><TrendingUp size={20} className="text-emerald-500"/><span>全集团利润 ({periodLabel})</span></div>
+                                <div className="text-3xl font-bold text-slate-800">¥ {totalProfit.toLocaleString()}</div>
+                            </div>
+                            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                                <div className="flex items-center gap-3 mb-2 text-slate-500"><PieChart size={20} className="text-blue-500"/><span>平均利润率</span></div>
+                                <div className="text-3xl font-bold text-slate-800">{avgRatio}</div>
+                            </div>
+                        </div>
+                        
+                        <div className="mb-4 flex justify-between items-end">
+                            <h3 className="text-lg font-bold text-slate-800">经营核算表 <span className="text-xs font-normal text-slate-400 ml-2">(点击列表行查看详细分析)</span></h3>
+                            <span className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">数据期间: {periodLabel}</span>
+                        </div>
+                        
+                        <div className="border border-slate-200 rounded-xl overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 text-slate-500">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left">排名</th>
+                                        <th className="px-6 py-4 text-left">阿米巴单元</th>
+                                        <th className="px-6 py-4 text-right">总收入</th>
+                                        <th className="px-6 py-4 text-right text-indigo-600 bg-indigo-50/30">可控成本</th>
+                                        <th className="px-6 py-4 text-right text-slate-600 bg-slate-50/30">分摊/交易成本</th>
+                                        <th className="px-6 py-4 text-right">核算利润</th>
+                                        <th className="px-6 py-4 text-right">利润率</th>
+                                        <th className="px-6 py-4 text-center">详情</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {currentAmebaData.map((r,i)=>(
+                                        <tr key={r.id} className="hover:bg-indigo-50 row-hover-effect transition-colors" onClick={() => setSelectedAmeba(r)}>
+                                            <td className="px-6 py-4 font-bold text-slate-400">#{i+1}</td>
+                                            <td className="px-6 py-4 font-bold text-slate-700">{r.group}</td>
+                                            <td className="px-6 py-4 text-right font-mono">{r.income.toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-right font-mono text-indigo-600 bg-indigo-50/30 font-medium">{r.directCost.toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-right font-mono text-slate-500 bg-slate-50/30">{r.allocatedCost.toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-right font-mono font-bold text-slate-800">{r.profit.toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-right font-mono text-emerald-600">{r.ratio}</td>
+                                            <td className="px-6 py-4 text-center text-indigo-400"><ArrowRight size={16} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* 二级详情分析弹窗 */}
+                    {selectedAmeba && detailData && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm animate-fade-in" onClick={closeOnBackdrop(setSelectedAmeba)}>
+                            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh]" onClick={e => e.stopPropagation()}>
+                                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-20">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200"><Users size={24}/></div>
+                                        <div>
+                                            <h3 className="text-2xl font-bold text-slate-800">{selectedAmeba.group}</h3>
+                                            <p className="text-sm text-slate-500">{periodLabel} 经营深度分析</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-6 mr-6">
+                                        <div className="text-right"><div className="text-xs text-slate-400">核算利润</div><div className="text-lg font-bold text-slate-800">¥ {selectedAmeba.profit.toLocaleString()}</div></div>
+                                        <div className="text-right"><div className="text-xs text-slate-400">利润率</div><div className="text-lg font-bold text-emerald-600">{selectedAmeba.ratio}</div></div>
+                                    </div>
+                                    <button onClick={() => setSelectedAmeba(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"><X size={24}/></button>
+                                </div>
+
+                                <div className="p-8 overflow-y-auto bg-slate-50/30 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                    {/* 左侧：专属损益表 (可点击) */}
+                                    <div className="lg:col-span-1 space-y-6">
+                                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-full">
+                                            <h4 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2"><FileSpreadsheet size={20} className="text-indigo-500"/> 阿米巴损益表 (P&L)</h4>
+                                            <div className="space-y-1">
+                                                {detailData.pnl.map((item, i) => (
+                                                    <div 
+                                                        key={i} 
+                                                        onClick={() => setDetailModalItem({ name: item.name, value: item.value })}
+                                                        className={`flex justify-between items-center py-2 px-2 rounded cursor-pointer transition-colors hover:bg-indigo-50 
+                                                            ${item.level===1 ? 'font-bold text-slate-800 mt-2' : 'text-sm text-slate-600'} 
+                                                            ${item.highlight ? 'bg-indigo-50/50' : ''} 
+                                                            ${item.final ? 'bg-emerald-50/50 text-emerald-800' : ''}
+                                                        `}
+                                                    >
+                                                        <span className="flex items-center gap-2" style={{paddingLeft: (item.level-1)*12 + 'px'}}>
+                                                            {item.name}
+                                                            <ChevronRight size={12} className="text-slate-300 opacity-0 group-hover:opacity-100" />
+                                                        </span>
+                                                        <span className="font-mono">¥ {item.value.toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 右侧：图表分析 */}
+                                    <div className="lg:col-span-2 space-y-6">
+                                        {/* 趋势图 */}
+                                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                                            <h4 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2"><BarChart2 size={20} className="text-blue-500"/> 月度经营趋势</h4>
+                                            <ComboChart data={detailData.trend} />
+                                        </div>
+
+                                        {/* 结构图 */}
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                                                <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><PieChartIcon size={20} className="text-orange-500"/> 成本结构分析</h4>
+                                                <InteractivePieChart data={detailData.costStructure} />
+                                            </div>
+                                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-center items-center text-center">
+                                                <Layers size={48} className="text-indigo-100 mb-4"/>
+                                                <h4 className="text-lg font-bold text-slate-800">边际贡献率</h4>
+                                                <div className="text-4xl font-bold text-indigo-600 my-2">{((selectedAmeba.income - selectedAmeba.directCost) / selectedAmeba.income * 100).toFixed(1)}%</div>
+                                                <p className="text-sm text-slate-500 px-8">该指标反映了该巴组剔除可控成本后的真实创收能力。</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 三级明细弹窗 */}
+                    {detailModalItem && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={closeOnBackdrop(setDetailModalItem)}>
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-slate-800">{detailModalItem.name}</h3>
+                                        <p className="text-sm text-slate-500 mt-1">科目流水明细</p>
+                                    </div>
+                                    <div className="text-right mr-4">
+                                        <div className="text-xs text-slate-500">总金额</div>
+                                        <div className="text-lg font-bold text-indigo-600">¥ {detailModalItem.value.toLocaleString()}</div>
+                                    </div>
+                                    <button onClick={() => setDetailModalItem(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                                <div className="p-0 overflow-y-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left">记录日期</th>
+                                                <th className="px-6 py-3 text-left">摘要</th>
+                                                <th className="px-6 py-3 text-left">类型</th>
+                                                <th className="px-6 py-3 text-right">金额</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {getDetailData(detailModalItem.name, detailModalItem.value).map((detail) => (
+                                                <tr key={detail.id} className="hover:bg-slate-50">
+                                                    <td className="px-6 py-4 text-slate-500 font-mono">{detail.date}</td>
+                                                    <td className="px-6 py-4 text-slate-700">{detail.desc}</td>
+                                                    <td className="px-6 py-3"><span className={`px-2 py-0.5 rounded text-xs ${detail.type==='入账'?'bg-green-50 text-green-700':'bg-red-50 text-red-700'}`}>{detail.type}</span></td>
+                                                    <td className="px-6 py-4 text-right font-mono font-medium">¥ {detail.amount.toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="p-4 border-t border-slate-100 bg-slate-50/50 text-right">
+                                    <button onClick={() => setDetailModalItem(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">
+                                        关闭
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

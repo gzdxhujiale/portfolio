@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>经营仓中心</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } } } } }
+    </script>
+    <style>::-webkit-scrollbar { width: 0px; background: transparent; } body { overflow-x: hidden; }</style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const IconWrapper = ({ children, size = 24, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
+        const Building2 = (p) => <IconWrapper {...p}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></IconWrapper>;
+        const PieChart = (p) => <IconWrapper {...p}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></IconWrapper>;
+        const ShoppingBag = (p) => <IconWrapper {...p}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></IconWrapper>;
+        const ArrowRight = (p) => <IconWrapper {...p}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></IconWrapper>;
+
+        const App = () => {
+            const navigate = (url) => {
+                // 通知父窗口更新导航状态
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'navigate', path: 'report/' + url }, '*');
+                }
+                window.location.href = url;
+            };
+
+            return (
+                <div className="p-10 max-w-7xl mx-auto">
+                    <div className="mb-10">
+                        <h1 className="text-3xl font-bold text-slate-800">财务报表中心</h1>
+                        <p className="text-slate-500 mt-2">全域经营数据概览与分析入口</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {/* Card 1: Company */}
+                        <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 hover:shadow-lg transition-all cursor-pointer group" onClick={() => navigate('report_company.html')}>
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                                <Building2 size={32} />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800 mb-2">公司经营仓</h2>
+                            <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                                查看资产负债表、利润表、现金流量表及全公司预算执行监控。
+                            </p>
+                            <div className="flex items-center text-indigo-600 font-medium text-sm group-hover:translate-x-2 transition-transform">
+                                进入查看 <ArrowRight size={16} className="ml-1"/>
+                            </div>
+                        </div>
+
+                        {/* Card 2: Ameba */}
+                        <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 hover:shadow-lg transition-all cursor-pointer group" onClick={() => navigate('report_ameba.html')}>
+                            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                                <PieChart size={32} />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800 mb-2">阿米巴经营仓</h2>
+                            <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                                包含各阿米巴单元（产研、运营等）的经营核算表与利润分析。
+                            </p>
+                            <div className="flex items-center text-emerald-600 font-medium text-sm group-hover:translate-x-2 transition-transform">
+                                进入查看 <ArrowRight size={16} className="ml-1"/>
+                            </div>
+                        </div>
+
+                        {/* Card 3: Store */}
+                        <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 hover:shadow-lg transition-all cursor-pointer group" onClick={() => navigate('report_store.html')}>
+                            <div className="w-14 h-14 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                                <ShoppingBag size={32} />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800 mb-2">店铺经营仓</h2>
+                            <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                                多平台（淘宝/抖音/快手）店铺核心指标、收支趋势与深度分析。
+                            </p>
+                            <div className="flex items-center text-violet-600 font-medium text-sm group-hover:translate-x-2 transition-transform">
+                                进入查看 <ArrowRight size={16} className="ml-1"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Quick Stats Section */}
+                    <div className="mt-12">
+                        <h3 className="text-lg font-bold text-slate-800 mb-6">本月核心数据快照</h3>
+                        <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-[2rem] p-8 text-white flex justify-around items-center">
+                            <div className="text-center">
+                                <div className="text-slate-400 text-sm mb-1">总 GMV</div>
+                                <div className="text-3xl font-bold">¥ 2,940,000</div>
+                            </div>
+                            <div className="w-px h-12 bg-slate-700"></div>
+                            <div className="text-center">
+                                <div className="text-slate-400 text-sm mb-1">全集团利润</div>
+                                <div className="text-3xl font-bold text-emerald-400">¥ 1,300,000</div>
+                            </div>
+                            <div className="w-px h-12 bg-slate-700"></div>
+                            <div className="text-center">
+                                <div className="text-slate-400 text-sm mb-1">预算执行率</div>
+                                <div className="text-3xl font-bold text-amber-400">88.5%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

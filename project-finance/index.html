@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务中心 - 首页</title>
+    <script src="https://cdn.staticfile.org/react/18.2.0/umd/react.development.min.js"></script>
+    <script src="https://cdn.staticfile.org/react-dom/18.2.0/umd/react-dom.development.min.js"></script>
+    <script src="https://cdn.staticfile.org/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        iframe { border: none; width: 100%; height: 100%; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 弹窗动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .animate-modal-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root" class="h-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 图标组件 ---
+        const IconWrapper = ({ children, size = 20, className = "", ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
+        );
+        const LayoutGrid = (props) => <IconWrapper {...props}><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></IconWrapper>;
+        const ListTodo = (props) => <IconWrapper {...props}><rect x="3" y="5" width="6" height="6" rx="1" /><path d="m3 17 2 2 4-4" /><path d="M13 6h8" /><path d="M13 12h8" /><path d="M13 18h8" /></IconWrapper>;
+        const History = (props) => <IconWrapper {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></IconWrapper>;
+        const BarChart3 = (props) => <IconWrapper {...props}><path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></IconWrapper>;
+        const Building2 = (props) => <IconWrapper {...props}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></IconWrapper>;
+        const PieChart = (props) => <IconWrapper {...props}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></IconWrapper>;
+        const ShoppingBag = (props) => <IconWrapper {...props}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></IconWrapper>;
+        const Settings = (props) => <IconWrapper {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconWrapper>;
+        const Presentation = (props) => <IconWrapper {...props}><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></IconWrapper>;
+        const Shield = (props) => <IconWrapper {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></IconWrapper>;
+        const Users = (props) => <IconWrapper {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></IconWrapper>;
+        const UserCog = (props) => <IconWrapper {...props}><circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/><path d="M10 15H6a4 4 0 0 0-4 4v2"/><path d="m21.7 16.4-.9-.3"/><path d="m15.2 13.9-.9-.3"/><path d="m16.6 18.7.3-.9"/><path d="m19.1 12.2.3-.9"/><path d="m19.6 18.7-.4-1"/><path d="m16.8 12.3-.4-1"/><path d="m14.3 16.6 1-.4"/><path d="m20.7 13.8 1-.4"/></IconWrapper>;
+        const Key = (props) => <IconWrapper {...props}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.3 9.3"/><path d="m17 6 4 4"/></IconWrapper>;
+        const FileText = (props) => <IconWrapper {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></IconWrapper>;
+        const Send = (props) => <IconWrapper {...props}><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></IconWrapper>;
+        const Bell = (props) => <IconWrapper {...props}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></IconWrapper>;
+        const Book = (props) => <IconWrapper {...props}><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></IconWrapper>;
+        const Table = (props) => <IconWrapper {...props}><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></IconWrapper>;
+        const Info = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></IconWrapper>;
+
+        // --- 版权弹窗组件 ---
+        const CopyrightModal = ({ onClose }) => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4 transition-all duration-300">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-0 relative overflow-hidden animate-modal-in border border-slate-100">
+                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-500"></div>
+                     
+                     <div className="p-6">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                <Info size={20} />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-800">关于本演示系统</h3>
+                        </div>
+                        
+                        <div className="text-slate-600 text-sm leading-relaxed mb-6 space-y-3">
+                            <p className="font-medium text-slate-800">演示项目，旨在展示数据可视化、后台交互设计及业务流程逻辑。</p>
+                            <ul className="list-disc pl-5 space-y-2 text-slate-500 text-xs bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <li>所有数据均为脱敏模拟数据，不涉及真实商业机密。</li>
+                                <li>离职后本人经复盘后重新构建，与原产品有较大差异。</li>
+                            </ul>
+                        </div>
+                        
+                        <button 
+                            onClick={onClose}
+                            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-200 text-sm"
+                        >
+                            我已了解
+                        </button>
+                     </div>
+                </div>
+            </div>
+        );
+
+        const App = () => {
+            // 1. 修改默认路径为“待办清单”
+            const [currentPath, setCurrentPath] = useState('workspace/todo.html');
+            const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+            
+            // 2. 将弹窗状态默认设为 true，且不依赖 localStorage
+            const [showCopyright, setShowCopyright] = useState(true);
+
+            // 移除 useEffect 中的 localStorage 检查逻辑
+
+            const closeCopyright = () => {
+                // 不再记录到 localStorage
+                setShowCopyright(false);
+            };
+
+            // 监听子页面的导航消息
+            React.useEffect(() => {
+                const handleMessage = (event) => {
+                    if (event.data && event.data.type === 'navigate') {
+                        setCurrentPath(event.data.path);
+                    }
+                };
+                window.addEventListener('message', handleMessage);
+                return () => window.removeEventListener('message', handleMessage);
+            }, []);
+
+            const NavItem = ({ icon: Icon, label, path, active, onClick }) => (
+                <div 
+                    onClick={() => { 
+                        if(onClick) onClick();
+                        else setCurrentPath(path); 
+                    }}
+                    className={`group flex items-center justify-between px-4 py-3.5 rounded-xl cursor-pointer font-medium transition-all relative overflow-hidden select-none
+                    ${active ? 'bg-indigo-50/80 text-indigo-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+                >
+                    <div className="flex items-center gap-3">
+                        {active && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-full opacity-100" />}
+                        <Icon size={20} className={`shrink-0 ${active ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                        <span className={`transition-all duration-300 ${!isSidebarOpen && 'opacity-0 w-0 hidden'}`}>{label}</span>
+                    </div>
+                </div>
+            );
+
+            const SubNavItem = ({ icon: Icon, label, path, active }) => (
+                <div 
+                    onClick={(e) => { e.stopPropagation(); setCurrentPath(path); }}
+                    className={`flex items-center gap-3 px-4 py-2.5 ml-4 rounded-lg cursor-pointer text-sm transition-all
+                    ${active ? 'text-indigo-600 bg-indigo-50 font-medium' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+                >
+                    <Icon size={16} className={active ? 'text-indigo-500' : 'text-slate-400'}/>
+                    <span className={`transition-all duration-300 ${!isSidebarOpen && 'opacity-0 w-0 hidden'}`}>{label}</span>
+                </div>
+            );
+
+            return (
+                <div className="flex h-full font-sans text-slate-800">
+                    {/* 弹窗渲染 */}
+                    {showCopyright && <CopyrightModal onClose={closeCopyright} />}
+
+                    <aside className={`bg-white transition-all duration-300 ease-in-out flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
+                        <div className="p-6 flex items-center gap-4 mb-2">
+                            <div className="w-9 h-9 bg-gradient-to-br from-indigo-600 to-blue-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 shrink-0 transition-transform hover:scale-105 cursor-pointer" onClick={() => setIsSidebarOpen(!isSidebarOpen)}><LayoutGrid size={18} /></div>
+                            <h1 className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 whitespace-nowrap transition-opacity duration-300 ${!isSidebarOpen && 'opacity-0 hidden'}`}>财务中心</h1>
+                        </div>
+                        <nav className="flex-1 px-3 space-y-1 overflow-y-auto no-scrollbar">
+                            <div className="text-xs font-bold text-slate-400 px-4 py-2 mt-4 mb-1 uppercase tracking-wider">工作台</div>
+                            <NavItem icon={ListTodo} label="待办清单" path="workspace/todo.html" active={currentPath === 'workspace/todo.html'} />
+                            <NavItem icon={History} label="历史记录" path="workspace/history.html" active={currentPath === 'workspace/history.html'} />
+                            
+                            <div className="text-xs font-bold text-slate-400 px-4 py-2 mt-6 mb-1 uppercase tracking-wider">数据分析</div>
+                            
+                            <div className="space-y-1">
+                                <NavItem 
+                                    icon={BarChart3} 
+                                    label="经营仓中心" 
+                                    path="report/report_center.html" 
+                                    active={currentPath === 'report/report_center.html'} 
+                                />
+                                <div className="space-y-1 animate-fade-in">
+                                    <SubNavItem icon={Building2} label="公司经营仓" path="report/report_company.html" active={currentPath === 'report/report_company.html'} />
+                                    <SubNavItem icon={PieChart} label="阿米巴经营仓" path="report/report_ameba.html" active={currentPath === 'report/report_ameba.html'} />
+                                    <SubNavItem icon={ShoppingBag} label="店铺经营仓" path="report/report_store.html" active={currentPath === 'report/report_store.html'} />
+                                </div>
+                                <NavItem 
+                                    icon={Presentation} 
+                                    label="数据看板" 
+                                    path="report/bi_center.html" 
+                                    active={currentPath === 'report/bi_center.html'} 
+                                />
+                                <div className="space-y-1 animate-fade-in">
+                                    <SubNavItem icon={Table} label="自助报表" path="report/self_service_bi.html" active={currentPath === 'report/self_service_bi.html'} />
+                                    <SubNavItem icon={BarChart3} label="对比分析" path="report/dashboard_compare.html" active={currentPath === 'report/dashboard_compare.html'} />
+                                </div>
+                            </div>
+
+                            <div className="text-xs font-bold text-slate-400 px-4 py-2 mt-6 mb-1 uppercase tracking-wider">权限中心</div>
+                            <div className="space-y-1">
+                                <NavItem 
+                                    icon={Shield} 
+                                    label="权限中心" 
+                                    path="rbac/rbac_center.html" 
+                                    active={currentPath.includes('rbac/')} 
+                                />
+                                <div className="space-y-1 animate-fade-in">
+                                    <SubNavItem icon={Users} label="用户管理" path="rbac/rbac_user.html" active={currentPath === 'rbac/rbac_user.html'} />
+                                    <SubNavItem icon={UserCog} label="角色管理" path="rbac/rbac_role.html" active={currentPath === 'rbac/rbac_role.html'} />
+                                    <SubNavItem icon={Key} label="权限管理" path="rbac/rbac_permission.html" active={currentPath === 'rbac/rbac_permission.html'} />
+                                    <SubNavItem icon={FileText} label="操作日志" path="rbac/rbac_log.html" active={currentPath === 'rbac/rbac_log.html'} />
+                                    <SubNavItem icon={Send} label="权限申请" path="rbac/rbac_apply.html" active={currentPath === 'rbac/rbac_apply.html'} />
+                                </div>
+                            </div>
+
+                            <div className="text-xs font-bold text-slate-400 px-4 py-2 mt-6 mb-1 uppercase tracking-wider">系统设置</div>
+                            <NavItem icon={Settings} label="配置管理" path="config/config_management.html" active={currentPath === 'config/config_management.html'} />
+                            <NavItem icon={Bell} label="通知设置" path="config/config_notification.html" active={currentPath === 'config/config_notification.html'} />
+                            <NavItem icon={Book} label="数据字典与文档" path="config/config_dictionary.html" active={currentPath === 'config/config_dictionary.html'} />
+                        </nav>
+                        <div className="p-4 mt-auto border-t border-slate-50">
+                            <div className={`flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-all cursor-pointer ${!isSidebarOpen && 'justify-center'}`}>
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">JL</div>
+                                <div className={`flex-1 min-w-0 transition-all duration-300 ${!isSidebarOpen && 'opacity-0 w-0 hidden'}`}><p className="text-sm font-semibold text-slate-700 truncate">家乐</p><p className="text-xs text-slate-400 truncate">财务专员</p></div>
+                            </div>
+                        </div>
+                    </aside>
+                    <main className="flex-1 bg-[#F8FAFC] relative"><iframe src={currentPath} title="Content Frame"></iframe></main>
+                </div>
+            );
+        };
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

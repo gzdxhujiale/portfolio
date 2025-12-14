@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能对比分析 - 电商数据中心</title>
+    <!-- React & Tailwind -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入第三方库 (参考 self_service_bi.html) -->
+    <!-- Arquero: 强大的数据处理库 (类似 Pandas/Dplyr) -->
+    <script src="https://cdn.jsdelivr.net/npm/arquero@5.4.0/dist/arquero.min.js"></script>
+    <!-- ECharts: 百度开源的专业图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- Lodash: 工具库 -->
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+
+    <!-- 数据源 -->
+    <script src="ecommerce_data.js"></script>
+
+    <style>
+        ::-webkit-scrollbar{width:6px;height:6px}
+        ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    </style>
+</head>
+<body class="bg-[#f0f2f5]">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect, useRef } = React;
+        const { op, escape } = aq; // Arquero 操作符
+
+        // 图标组件
+        const Icon = ({ path, size = 18, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
+        
+        // 修复：包含多个子元素的 SVG 图标必须用 <>...</> 包裹
+        const Icons = {
+            Filter: <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />,
+            Chart: <path d="M18 20V10M12 20V4M6 20v-6" />,
+            Table: <path d="M3 3h18v18H3zM3 9h18M3 15h18" />,
+            Calendar: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>,
+            Home: <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>,
+            ChevronRight: <polyline points="9 18 15 12 9 6" />,
+            Refresh: <><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></>,
+            Download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y1="3" /></>
+        };
+
+        // 常量配置
+        const DIMENSIONS = [
+            { id: '客户', name: '客户', drillDown: '平台' },
+            { id: '平台', name: '平台', drillDown: '店铺名称' },
+            { id: '店铺名称', name: '店铺', drillDown: null },
+        ];
+
+        const MEASURES = [
+            { id: 'GMV', name: 'GMV', type: 'currency', agg: 'sum' },
+            { id: '订单数', name: '订单数', type: 'number', agg: 'sum' },
+            { id: '毛利率', name: '毛利率', type: 'percent', agg: 'mean' }, // 简化演示，实际应为 (GMV-成本)/GMV
+            { id: 'ROI', name: 'ROI', type: 'number', agg: 'mean' },
+            { id: '访客数', name: '访客数', type: 'number', agg: 'sum' },
+            { id: '客单价', name: '客单价', type: 'currency', agg: 'mean' },
+            { id: '退货率', name: '退货率', type: 'percent', agg: 'mean' }
+        ];
+
+        const COLORS = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
+
+        const App = () => {
+            // --- 状态 ---
+            const [rawData, setRawData] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [dateRange, setDateRange] = useState({ start: '', end: '' });
+            
+            const [drillPath, setDrillPath] = useState([]); // [{ dim: '客户', value: '客户A' }]
+            const [activeDim, setActiveDim] = useState(DIMENSIONS[0]); // 当前显示的维度
+            
+            const [selectedMeasures, setSelectedMeasures] = useState(['GMV', '毛利率', 'ROI']);
+            const [viewMode, setViewMode] = useState('chart'); // 'chart' | 'table'
+
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            // --- 1. 初始化数据 ---
+            useEffect(() => {
+                // 模拟从 ecommerce_data.js 加载 (或者 window.ECOMMERCE_DATA)
+                const data = window.ECOMMERCE_DATA || [];
+                if (data.length > 0) {
+                    // 初始化日期范围
+                    const dates = data.map(d => new Date(d['日期']).getTime());
+                    const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
+                    const maxDate = new Date(Math.max(...dates)).toISOString().split('T')[0];
+                    setDateRange({ start: minDate, end: maxDate });
+                    setRawData(data);
+                }
+                setLoading(false);
+            }, []);
+
+            // --- 2. Arquero 数据处理管道 ---
+            const aggData = useMemo(() => {
+                if (rawData.length === 0) return [];
+
+                // A. 创建 Arquero 表
+                let dt = aq.from(rawData);
+
+                // B. 筛选: 日期范围
+                if (dateRange.start && dateRange.end) {
+                    const start = new Date(dateRange.start).getTime();
+                    const end = new Date(dateRange.end).getTime();
+                    dt = dt.filter(aq.escape(d => {
+                        const t = new Date(d['日期']).getTime();
+                        return t >= start && t <= end;
+                    }));
+                }
+
+                // C. 筛选: 下钻路径
+                drillPath.forEach(step => {
+                    dt = dt.filter(aq.escape(d => d[step.dim] === step.value));
+                });
+
+                // D. 确定当前分组维度
+                // 如果路径也是基于维度的，下一个维度由 drillPath 深度决定
+                // 这里我们简化逻辑：drillPath 决定了过滤条件，activeDim 决定了 group by
+                const groupKey = activeDim.id;
+
+                // E. 聚合配置
+                const rollupConfig = {};
+                MEASURES.forEach(m => {
+                    if (m.agg === 'sum') {
+                        rollupConfig[m.id] = op.sum(m.id);
+                    } else if (m.agg === 'mean') {
+                        rollupConfig[m.id] = op.mean(m.id);
+                    }
+                });
+                // 也可以添加记录数
+                rollupConfig['_count'] = op.count();
+
+                // F. 执行分组和聚合
+                dt = dt.groupby(groupKey).rollup(rollupConfig).orderby(aq.desc(selectedMeasures[0] || 'GMV'));
+
+                return dt.objects(); // 返回原生对象数组供前端使用
+            }, [rawData, dateRange, drillPath, activeDim, selectedMeasures]);
+
+            // --- 3. ECharts 图表渲染 ---
+            useEffect(() => {
+                if (viewMode !== 'chart' || !chartRef.current || aggData.length === 0) return;
+
+                // 初始化或获取实例
+                if (!chartInstance.current) {
+                    chartInstance.current = echarts.init(chartRef.current);
+                    window.addEventListener('resize', () => chartInstance.current.resize());
+                }
+
+                const chart = chartInstance.current;
+                const xAxisData = aggData.map(d => d[activeDim.id]);
+
+                // 构建 Series
+                const series = selectedMeasures.map((mid, idx) => {
+                    const measure = MEASURES.find(m => m.id === mid);
+                    const isLine = ['毛利率', 'ROI', '退货率', '净利率'].includes(mid);
+                    
+                    return {
+                        name: measure.name,
+                        type: isLine ? 'line' : 'bar',
+                        data: aggData.map(d => {
+                            const val = d[mid];
+                            // 百分比处理
+                            return measure.type === 'percent' ? parseFloat(val.toFixed(2)) : Math.round(val);
+                        }),
+                        yAxisIndex: isLine ? 1 : 0,
+                        itemStyle: { color: COLORS[idx % COLORS.length] },
+                        barMaxWidth: 40,
+                        tooltip: {
+                            valueFormatter: (value) => {
+                                if (measure.type === 'currency') return `¥${value.toLocaleString()}`;
+                                if (measure.type === 'percent') return `${value}%`;
+                                return value.toLocaleString();
+                            }
+                        }
+                    };
+                });
+
+                // 配置 Option
+                const option = {
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'shadow' },
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        textStyle: { color: '#333' }
+                    },
+                    legend: { bottom: 0 },
+                    grid: { top: 40, right: 40, bottom: 40, left: 20, containLabel: true },
+                    xAxis: { 
+                        type: 'category', 
+                        data: xAxisData,
+                        axisLabel: { interval: 0, rotate: xAxisData.length > 8 ? 30 : 0 }
+                    },
+                    yAxis: [
+                        { type: 'value', name: '金额/数量', splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
+                        { type: 'value', name: '比率', splitLine: { show: false }, axisLabel: { formatter: '{value}%' } }
+                    ],
+                    series: series,
+                    // 添加点击事件支持
+                    brush: { toolbox: ['rect', 'polygon', 'keep', 'clear'], xAxisIndex: 0 }
+                };
+
+                chart.setOption(option, true); // true: not merge, reset
+
+                // 绑定点击事件用于下钻
+                chart.off('click'); // 防止重复绑定
+                chart.on('click', (params) => {
+                    if (params.name) {
+                        handleDrillDown(params.name);
+                    }
+                });
+
+            }, [aggData, selectedMeasures, viewMode]);
+
+
+            // --- 交互处理 ---
+
+            const handleDrillDown = (value) => {
+                if (!activeDim.drillDown) return;
+                
+                const nextDim = DIMENSIONS.find(d => d.id === activeDim.drillDown);
+                if (nextDim) {
+                    setDrillPath(prev => [...prev, { dim: activeDim.id, value }]);
+                    setActiveDim(nextDim);
+                }
+            };
+
+            const handleBreadcrumbClick = (index) => {
+                if (index === -1) {
+                    setDrillPath([]);
+                    setActiveDim(DIMENSIONS[0]);
+                } else {
+                    const newPath = drillPath.slice(0, index + 1);
+                    setDrillPath(newPath);
+                    // 找到路径最后一个维度的下一个维度
+                    const lastStepDimId = newPath[newPath.length - 1].dim;
+                    const lastStepDim = DIMENSIONS.find(d => d.id === lastStepDimId);
+                    const nextDim = DIMENSIONS.find(d => d.id === lastStepDim.drillDown);
+                    setActiveDim(nextDim);
+                }
+            };
+
+            const toggleMeasure = (id) => {
+                setSelectedMeasures(prev => 
+                    prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
+                );
+            };
+
+            // 格式化数值
+            const formatValue = (val, mid) => {
+                const measure = MEASURES.find(m => m.id === mid);
+                if (!measure) return val;
+                if (measure.type === 'currency') return `¥${val.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+                if (measure.type === 'percent') return `${val.toFixed(2)}%`;
+                return val.toLocaleString();
+            };
+
+            if (loading) return <div className="flex h-screen items-center justify-center text-slate-400">数据加载中...</div>;
+
+            return (
+                <div className="flex h-screen overflow-hidden text-slate-700">
+                    {/* 左侧配置栏 */}
+                    <div className="w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm z-10">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                            <Icon path={Icons.Filter} className="text-blue-600" />
+                            <h2 className="font-bold">配置面板</h2>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                            {/* 时间切片 */}
+                            <div>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                                    <Icon path={Icons.Calendar} size={12}/> 时间范围
+                                </h3>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-1 text-sm">
+                                        <input type="date" className="border rounded px-2 py-1 w-full text-slate-600 focus:ring-1 focus:ring-blue-500 outline-none" 
+                                            value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
+                                    </div>
+                                    <div className="flex items-center gap-1 text-sm">
+                                        <input type="date" className="border rounded px-2 py-1 w-full text-slate-600 focus:ring-1 focus:ring-blue-500 outline-none" 
+                                            value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr className="border-slate-100"/>
+
+                            {/* 指标选择 */}
+                            <div>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">核心指标</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {MEASURES.map(m => (
+                                        <button 
+                                            key={m.id}
+                                            onClick={() => toggleMeasure(m.id)}
+                                            className={`px-2 py-1.5 rounded text-xs border transition-all ${
+                                                selectedMeasures.includes(m.id) 
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200 font-medium' 
+                                                    : 'text-slate-600 border-slate-200 hover:border-slate-300 bg-white'
+                                            }`}
+                                        >
+                                            {m.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 维度信息 */}
+                            <div>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">当前维度</h3>
+                                <div className="p-3 bg-slate-50 rounded border border-slate-200 text-sm font-medium text-slate-700 flex justify-between items-center">
+                                    {activeDim.name}
+                                    {activeDim.drillDown && <span className="text-[10px] bg-blue-100 text-blue-600 px-1 rounded">可下钻</span>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 右侧主视图 */}
+                    <div className="flex-1 flex flex-col bg-[#f0f2f5] min-w-0">
+                        {/* 顶部工具栏 */}
+                        <div className="bg-white border-b border-slate-200 p-4 flex justify-between items-center shadow-sm z-10 shrink-0">
+                            {/* 面包屑 */}
+                            <div className="flex items-center gap-2 text-sm overflow-x-auto no-scrollbar">
+                                <div 
+                                    className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer ${drillPath.length === 0 ? 'font-bold text-slate-800' : 'text-slate-500'}`}
+                                    onClick={() => handleBreadcrumbClick(-1)}
+                                >
+                                    <Icon path={Icons.Home} size={14} />
+                                    <span>全部</span>
+                                </div>
+                                {drillPath.map((step, idx) => (
+                                    <div key={idx} className="flex items-center gap-1">
+                                        <Icon path={Icons.ChevronRight} size={14} className="text-slate-300" />
+                                        <div 
+                                            className="px-2 py-1 rounded hover:bg-slate-100 cursor-pointer text-slate-500"
+                                            onClick={() => handleBreadcrumbClick(idx)}
+                                        >
+                                            {step.value}
+                                        </div>
+                                    </div>
+                                ))}
+                                <Icon path={Icons.ChevronRight} size={14} className="text-slate-300" />
+                                <div className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-bold">
+                                    {activeDim.name}分析
+                                </div>
+                            </div>
+
+                            {/* 视图切换 */}
+                            <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
+                                <button onClick={() => setViewMode('chart')} className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${viewMode === 'chart' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
+                                    <Icon path={Icons.Chart} size={14} /> 可视化
+                                </button>
+                                <button onClick={() => setViewMode('table')} className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${viewMode === 'table' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
+                                    <Icon path={Icons.Table} size={14} /> 明细表
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 内容区域 */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {/* KPI 卡片 */}
+                            {aggData.length > 0 && (
+                                <div className="grid grid-cols-4 gap-4 mb-6">
+                                    {selectedMeasures.slice(0, 4).map((mid, idx) => {
+                                        const measure = MEASURES.find(m => m.id === mid);
+                                        // 计算总计: Sum for sum, weighted average for rates (simplified to mean of aggregates)
+                                        const values = aggData.map(d => d[mid]);
+                                        const total = measure.agg === 'sum' 
+                                            ? values.reduce((a, b) => a + b, 0)
+                                            : values.reduce((a, b) => a + b, 0) / values.length;
+
+                                        return (
+                                            <div key={mid} className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm border-l-4" style={{borderLeftColor: COLORS[idx % COLORS.length]}}>
+                                                <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">{measure.name}</div>
+                                                <div className="text-2xl font-bold text-slate-800">
+                                                    {formatValue(total, mid)}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* 图表容器 */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 h-[600px] flex flex-col">
+                                <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                        趋势对比分析
+                                    </h3>
+                                    <div className="text-xs text-slate-400">
+                                        {viewMode === 'chart' ? '点击柱状图可下钻' : `共 ${aggData.length} 条数据`}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 relative overflow-hidden">
+                                    {aggData.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                                            <Icon path={Icons.Filter} size={48} className="mb-2 opacity-20"/>
+                                            <p>当前筛选条件下无数据</p>
+                                        </div>
+                                    ) : viewMode === 'chart' ? (
+                                        <div ref={chartRef} className="w-full h-full"></div>
+                                    ) : (
+                                        <div className="overflow-auto h-full w-full">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="text-xs text-slate-500 bg-slate-50 uppercase sticky top-0">
+                                                    <tr>
+                                                        <th className="px-6 py-3">{activeDim.name}</th>
+                                                        {selectedMeasures.map(m => (
+                                                            <th key={m} className="px-6 py-3 text-right">{MEASURES.find(me => me.id === m).name}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {aggData.map((row, i) => (
+                                                        <tr key={i} className="hover:bg-slate-50 cursor-pointer" onClick={() => handleDrillDown(row[activeDim.id])}>
+                                                            <td className="px-6 py-4 font-medium text-slate-900 flex items-center gap-2">
+                                                                <span className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS[i % COLORS.length]}}></span>
+                                                                {row[activeDim.id]}
+                                                            </td>
+                                                            {selectedMeasures.map(m => (
+                                                                <td key={m} className="px-6 py-4 text-right tabular-nums text-slate-600">
+                                                                    {formatValue(row[m], m)}
+                                                                </td>
+                                                            ))}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

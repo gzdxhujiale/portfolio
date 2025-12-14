@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办清单</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: { 'fade-in-up': 'fadeInUp 0.5s ease-out' },
+                    keyframes: { fadeInUp: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } },
+                    colors: { indigo: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5' } }
+                }
+            }
+        }
+    </script>
+    <style>::-webkit-scrollbar { width: 0px; background: transparent; } body { overflow-x: hidden; }</style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        // --- 图标 ---
+        const IconWrapper = ({ children, size = 24, className = "", ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
+        const Menu = (p) => <IconWrapper {...p}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></IconWrapper>;
+        const Clock = (p) => <IconWrapper {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IconWrapper>;
+        const CheckCircle2 = (p) => <IconWrapper {...p}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></IconWrapper>;
+        const Search = (p) => <IconWrapper {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></IconWrapper>;
+        const RefreshCcw = (p) => <IconWrapper {...p}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></IconWrapper>;
+        const Settings = (p) => <IconWrapper {...p}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconWrapper>;
+        const Filter = (p) => <IconWrapper {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></IconWrapper>;
+        const ChevronLeft = (p) => <IconWrapper {...p}><path d="m15 18-6-6 6-6"/></IconWrapper>;
+        const ChevronRight = (p) => <IconWrapper {...p}><path d="m9 18 6-6-6-6"/></IconWrapper>;
+        const ArrowRight = (p) => <IconWrapper {...p}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></IconWrapper>;
+        const ArrowLeft = (p) => <IconWrapper {...p}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></IconWrapper>;
+        const FileSpreadsheet = (p) => <IconWrapper {...p}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></IconWrapper>;
+        const Copy = (p) => <IconWrapper {...p}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></IconWrapper>;
+        const Plus = (p) => <IconWrapper {...p}><path d="M5 12h14"/><path d="M12 5v14"/></IconWrapper>;
+        const X = (p) => <IconWrapper {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconWrapper>;
+
+        // --- 数据与组件 ---
+        const CLIENT_OPTIONS = ['橘子', '苹果', '香蕉'];
+        const PLATFORM_OPTIONS = ['抖音', '快手', '淘宝'];
+        const SHOP_SUFFIXES = ['A店', 'B店', 'C店'];
+        const getShopName = (p, s) => `${p}${s}`;
+
+        const INITIAL_TODO_DATA = [
+            { id: 1, period: '2025.10', client: '橘子', platform: '淘宝', shop: '淘宝A店', status: 'pending', statusText: '待上传' },
+            { id: 2, period: '2025.10', client: '苹果', platform: '抖音', shop: '抖音B店', status: 'done', statusText: '已上传' },
+            { id: 3, period: '2025.10', client: '香蕉', platform: '快手', shop: '快手C店', status: 'pending', statusText: '待上传' },
+            { id: 4, period: '2025.11', client: '橘子', platform: '抖音', shop: '抖音A店', status: 'pending', statusText: '待上传' },
+            { id: 5, period: '2025.11', client: '苹果', platform: '淘宝', shop: '淘宝C店', status: 'done', statusText: '已上传' },
+            { id: 6, period: '2025.11', client: '香蕉', platform: '快手', shop: '快手B店', status: 'pending', statusText: '待上传' },
+            { id: 7, period: '2025.11', client: '橘子', platform: '淘宝', shop: '淘宝B店', status: 'pending', statusText: '待上传' },
+        ];
+
+        const FILE_DETAIL_DATA = [
+            { id: 1, name: '2025.10_保证金账单.xlsx', type: '保证金账单', status: 'pending', size: '24KB' },
+            { id: 2, name: '2025.10_资金账单.xlsx', type: '资金账单', status: 'pending', size: '1.2MB' },
+            { id: 3, name: '2025.10_结算账单.xlsx', type: '结算账单', status: 'pending', size: '450KB' },
+            { id: 4, name: '2025.10_订单管理.xlsx', type: '订单管理', status: 'done', size: '5.6MB' },
+        ];
+
+        const App = () => {
+            const [view, setView] = useState('list');
+            const [selectedItem, setSelectedItem] = useState(null);
+            
+            return (
+                <div className="p-6 md:p-8 lg:p-10 max-w-7xl mx-auto">
+                    {view === 'list' ? <ListView onJump={(item) => { setSelectedItem(item); setView('detail'); }} /> : <DetailView item={selectedItem} onBack={() => setView('list')} />}
+                </div>
+            );
+        };
+
+        const ListView = ({ onJump }) => {
+            const [filters, setFilters] = useState({ client: '', platform: '', shop: '', search: '' });
+            const availableShops = useMemo(() => filters.platform ? SHOP_SUFFIXES.map(s => getShopName(filters.platform, s)) : [], [filters.platform]);
+            const filteredData = useMemo(() => INITIAL_TODO_DATA.filter(i => 
+                (!filters.client || i.client === filters.client) &&
+                (!filters.platform || i.platform === filters.platform) &&
+                (!filters.shop || i.shop === filters.shop) &&
+                (!filters.search || i.client.includes(filters.search) || i.shop.includes(filters.search))
+            ), [filters]);
+
+            const handleFilterChange = (k, v) => setFilters(p => ({ ...p, [k]: v, ...(k === 'platform' ? { shop: '' } : {}) }));
+
+            return (
+                <div className="space-y-8 animate-fade-in-up">
+                    <div className="flex justify-between items-end">
+                        <div><h2 className="text-2xl font-bold text-slate-800">工作台</h2><p className="text-slate-500 text-sm mt-1">当前列表共 {filteredData.length} 项任务</p></div>
+                        <div className="flex gap-4">
+                            <StatCard title="总待办" count={INITIAL_TODO_DATA.length} icon={<Menu size={18}/>} />
+                            <StatCard title="待处理" count={INITIAL_TODO_DATA.filter(i=>i.status==='pending').length} icon={<Clock size={18}/>} type="warning" active />
+                            <StatCard title="已完成" count={INITIAL_TODO_DATA.filter(i=>i.status==='done').length} icon={<CheckCircle2 size={18}/>} type="success" />
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col min-h-[600px]">
+                        <div className="p-6 border-b border-slate-50 flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">当月上传任务 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold">Oct</span></h3>
+                            <div className="flex items-center gap-3">
+                                <div className="relative group"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input type="text" value={filters.search} onChange={e=>handleFilterChange('search', e.target.value)} placeholder="搜索..." className="pl-9 pr-4 py-2 bg-slate-50 rounded-xl text-sm focus:ring-2 focus:ring-indigo-100 w-48 outline-none"/></div>
+                                <IconButton icon={<RefreshCcw size={16}/>} onClick={() => setFilters({ client: '', platform: '', shop: '', search: '' })} />
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex gap-3 items-center">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm mr-2"><Filter size={16}/>筛选:</div>
+                            <FilterSelect label="客户" value={filters.client} options={CLIENT_OPTIONS} onChange={v=>handleFilterChange('client', v)}/>
+                            <FilterSelect label="平台" value={filters.platform} options={PLATFORM_OPTIONS} onChange={v=>handleFilterChange('platform', v)}/>
+                            <FilterSelect label="店铺" value={filters.shop} options={availableShops} onChange={v=>handleFilterChange('shop', v)} disabled={!filters.platform}/>
+                        </div>
+                        <div className="overflow-x-auto flex-1">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50/80 text-slate-500 font-semibold"><tr><th className="px-8 py-5">账期</th><th className="px-6 py-5">客户</th><th className="px-6 py-5">平台</th><th className="px-6 py-5">店铺</th><th className="px-6 py-5 min-w-[140px]">状态</th><th className="px-8 py-5 text-right">操作</th></tr></thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {filteredData.map(row => (
+                                        <tr key={row.id} className="group hover:bg-indigo-50/30 transition-colors">
+                                            <td className="px-8 py-5 font-medium text-slate-700">{row.period}</td>
+                                            <td className="px-6 py-5 text-slate-600">{row.client}</td>
+                                            <td className="px-6 py-5"><PlatformBadge platform={row.platform}/></td>
+                                            <td className="px-6 py-5 text-slate-600">{row.shop}</td>
+                                            <td className="px-6 py-5"><StatusBadge status={row.status} text={row.statusText}/></td>
+                                            <td className="px-8 py-5 text-right"><button onClick={()=>onJump(row)} className="text-indigo-600 font-medium hover:underline flex items-center gap-1 ml-auto">详情 <ArrowRight size={14}/></button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const DetailView = ({ item, onBack }) => {
+            const displayItem = item || { period: '2025.10', shop: '演示店铺', platform: '淘宝', client: '演示客户' };
+            const files = FILE_DETAIL_DATA.map(f => ({ ...f, name: f.name.replace('淘宝_橘子树一号店', `${displayItem.platform}_${displayItem.shop}`) }));
+
+            return (
+                <div className="animate-fade-in-up max-w-5xl mx-auto">
+                    <div className="flex justify-between mb-8">
+                        <button onClick={onBack} className="flex items-center text-slate-500 hover:text-indigo-600 text-sm font-medium gap-2 transition-colors"><div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><ArrowLeft size={16}/></div> 返回列表</button>
+                        <div className="flex gap-3"><button className="px-4 py-2 bg-white border rounded-xl text-sm font-medium hover:bg-slate-50">历史</button><button className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 shadow-lg shadow-indigo-200">保存</button></div>
+                    </div>
+                    <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-[2rem] p-8 text-white shadow-xl shadow-indigo-200 mb-8 relative overflow-hidden">
+                         <div className="relative z-10"><div className="flex items-center gap-3 mb-2"><span className="px-2.5 py-1 rounded-lg bg-white/20 text-xs border border-white/10">{displayItem.platform}</span><span className="text-indigo-100 text-sm">{displayItem.client}</span></div><h1 className="text-3xl font-bold mb-2">{displayItem.shop}</h1><p className="text-indigo-100 opacity-90">{displayItem.period} 账单概览</p></div>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-slate-50 flex justify-between"><h3 className="font-bold text-slate-800">账单文件</h3><span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">{files.length} 个</span></div>
+                            <div className="divide-y divide-slate-50">{files.map(f=><div key={f.id} className="p-4 hover:bg-slate-50 flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-green-50 text-green-600 flex items-center justify-center"><FileSpreadsheet size={24}/></div><div className="flex-1"><p className="text-sm font-semibold text-slate-700">{f.name}</p><p className="text-xs text-slate-400">{f.size}</p></div><div className="flex items-center gap-2">{f.status==='done'?<span className="text-green-600 text-xs flex items-center gap-1"><CheckCircle2 size={14}/>已上传</span>:<span className="text-amber-600 text-xs flex items-center gap-1"><Clock size={14}/>待上传</span>}<button className="p-2 text-slate-400 hover:text-indigo-600"><Copy size={16}/></button></div></div>)}</div>
+                        </div>
+                        <div className="lg:col-span-1 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 flex flex-col"><h3 className="font-bold text-slate-800 mb-1">上传新文件</h3><p className="text-xs text-slate-400 mb-6">支持 xlsx, csv</p><div className="flex-1 border-2 border-dashed border-indigo-100 rounded-2xl bg-indigo-50/30 flex flex-col items-center justify-center text-center p-4 cursor-pointer hover:bg-indigo-50 transition-colors"><div className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center text-indigo-600 mb-4"><Plus size={32}/></div><p className="text-indigo-900 font-semibold">点击上传</p></div><button className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-xl font-medium shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2"><CheckCircle2 size={18}/> 提交所有</button></div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 通用 ---
+        const IconButton = ({icon, onClick}) => <button onClick={onClick} className="p-2 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors">{icon}</button>;
+        const FilterSelect = ({label, value, options, onChange, disabled}) => <div className="relative"><select value={value} onChange={e=>onChange(e.target.value)} disabled={disabled} className="appearance-none w-full pl-3 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:border-indigo-300 focus:ring-2 focus:ring-indigo-100 shadow-sm disabled:bg-slate-50"><option value="">{label}: 全部</option>{options.map(o=><option key={o} value={o}>{label}: {o}</option>)}</select><ChevronRight size={12} className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none"/></div>;
+        const StatCard = ({title, count, icon, type='default', active}) => <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${active?'ring-2 ring-indigo-100 border-indigo-200 shadow-md':'border-transparent bg-white'} ${type==='warning'?'bg-amber-50 text-amber-700':type==='success'?'bg-green-50 text-green-700':'bg-white text-slate-600'}`}><div className="p-2 rounded-lg bg-white/60">{icon}</div><div><div className="text-xl font-bold leading-none mb-1">{count}</div><div className="text-xs opacity-80 font-medium">{title}</div></div></div>;
+        const StatusBadge = ({status, text}) => <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${status==='pending'?'bg-amber-50 text-amber-600 border-amber-100':'bg-emerald-50 text-emerald-600 border-emerald-100'}`}><span className={`w-1.5 h-1.5 rounded-full ${status==='pending'?'bg-amber-500 animate-pulse':'bg-emerald-500'}`}></span>{text}</span>;
+        const PlatformBadge = ({platform}) => <div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${platform==='淘宝'?'bg-orange-500':platform==='抖音'?'bg-slate-800':platform==='快手'?'bg-red-500':'bg-blue-500'}`}></span><span className="text-slate-600">{platform}</span></div>;
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

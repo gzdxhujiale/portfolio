@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau Style BI - 自助分析</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+    
+    <!-- AG Grid Community -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.3/styles/ag-grid.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.3/styles/ag-theme-alpine.css">
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.3/dist/ag-grid-community.min.js"></script>
+    
+    <!-- Arquero - Data Wrangling Library -->
+    <script src="https://cdn.jsdelivr.net/npm/arquero@5.4.0/dist/arquero.min.js"></script>
+    
+    <!-- ECharts - Professional Charting Library -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    
+    <!-- Sortable.js - Drag & Drop Library -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    
+    <!-- 引入原始数据源 -->
+    <script src="../data.js"></script>
+    <script src="./ecommerce_data.js"></script>
+    
+    <style>
+        /* Tableau Design System Variables */
+        :root {
+            /* Colors */
+            --tb-blue: #2d68c4;       /* Dimension Blue */
+            --tb-blue-light: #e6f0fa;
+            --tb-green: #008856;      /* Measure Green */
+            --tb-green-light: #e0f5ea;
+            --tb-gray-bg: #f5f5f5;
+            --tb-border: #d1d1d1;
+            --tb-header-bg: #ffffff;
+            --tb-shelf-bg: #ffffff;
+            --tb-hover: #eef5f9;
+            --tb-text: #333333;
+            --tb-text-light: #666666;
+            
+            /* Sizing */
+            --header-height: 48px;
+            --sidebar-width: 220px;
+            --cards-width: 180px;
+            --shelf-height: 34px;
+        }
+
+        body {
+            font-family: 'Benton Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--tb-text);
+            background-color: var(--tb-gray-bg);
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        /* --- Layout Structure --- */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .main-workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar (Data Pane) --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #fafafa;
+            border-right: 1px solid var(--tb-border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .data-section-header {
+            padding: 8px 12px;
+            font-weight: 600;
+            font-size: 12px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #eee;
+            margin-top: 4px;
+        }
+
+        .field-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+
+        .field-item {
+            padding: 4px 12px 4px 8px;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.1s;
+        }
+        .field-item:hover {
+            background-color: #e8f4fc;
+        }
+        .field-item:active {
+            cursor: grabbing;
+        }
+        
+        .field-icon {
+            width: 16px;
+            text-align: center;
+            font-size: 11px;
+        }
+        .dim-icon { color: var(--tb-blue); }
+        .measure-icon { color: var(--tb-green); }
+
+        /* --- Cards Column (Filters/Marks) --- */
+        .cards-column {
+            width: var(--cards-width);
+            background: #fdfdfd;
+            border-right: 1px solid var(--tb-border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            padding: 8px;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        .card {
+            border: 1px solid #dcdcdc;
+            border-radius: 3px;
+            background: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .card-header {
+            padding: 4px 8px;
+            font-weight: 600;
+            font-size: 11px;
+            background: #f8f8f8;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-body {
+            padding: 8px;
+            min-height: 40px;
+        }
+
+        /* --- Marks Card Specifics --- */
+        .mark-selector {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        .mark-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .mark-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            cursor: pointer;
+            color: #666;
+            font-size: 11px;
+            gap: 4px;
+        }
+        .mark-btn:hover { background: #f0f0f0; }
+        .mark-btn.active { background: #e8f4fc; border-color: #d0e8f8; color: var(--tb-blue); }
+
+        /* --- Main Content (Shelves + Viz) --- */
+        .viz-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: white;
+        }
+
+        .shelves-container {
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--tb-border);
+            background: white;
+        }
+
+        .shelf-row {
+            display: flex;
+            align-items: center;
+            min-height: var(--shelf-height);
+            margin-bottom: 4px;
+        }
+        .shelf-label {
+            width: 60px;
+            font-size: 11px;
+            color: #666;
+            text-align: right;
+            padding-right: 12px;
+            font-weight: 500;
+        }
+        .shelf-dropzone {
+            flex: 1;
+            border: 1px solid #dcdcdc;
+            border-radius: 16px;
+            min-height: 28px;
+            padding: 2px 6px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            background: white;
+            transition: all 0.2s;
+        }
+        .shelf-dropzone.drag-over {
+            border-color: var(--tb-blue);
+            background-color: #f4f9fd;
+            box-shadow: 0 0 0 2px rgba(45, 104, 196, 0.2);
+        }
+
+        /* --- Pills --- */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: white;
+            cursor: default;
+            user-select: none;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            max-width: 200px;
+            height: 22px;
+            white-space: nowrap;
+        }
+        .pill.dim {
+            background-color: var(--tb-blue);
+            border: 1px solid #1f58b0;
+        }
+        .pill.measure {
+            background-color: var(--tb-green);
+            border: 1px solid #006e45;
+        }
+        .pill:hover {
+            filter: brightness(110%);
+        }
+        .pill-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 4px;
+        }
+        .pill-caret {
+            font-size: 10px;
+            opacity: 0.8;
+            margin-left: 4px;
+        }
+        .pill-remove {
+            margin-left: 6px;
+            opacity: 0.7;
+            cursor: pointer;
+        }
+        .pill-remove:hover { opacity: 1; }
+
+        /* --- Date Aggregation Menu --- */
+        .date-agg-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            min-width: 120px;
+            padding: 4px 0;
+        }
+        .date-agg-menu-item {
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .date-agg-menu-item:hover {
+            background: #e8f4fc;
+        }
+        .date-agg-menu-item.active {
+            background: #d0e8f8;
+            color: var(--tb-blue);
+            font-weight: 500;
+        }
+        .date-agg-menu-item i {
+            width: 14px;
+            text-align: center;
+            color: #888;
+        }
+        .date-agg-menu-item.active i {
+            color: var(--tb-blue);
+        }
+
+        /* --- Canvas --- */
+        .canvas-wrapper {
+            flex: 1;
+            padding: 20px;
+            overflow: hidden;
+            background: #f9f9f9;
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+        }
+        
+        .viz-sheet {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 600px;
+            min-height: 400px;
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            border: 1px solid #eee;
+        }
+
+        /* --- AG Grid Custom Overrides --- */
+        .ag-theme-alpine {
+            --ag-header-background-color: #fafafa;
+            --ag-odd-row-background-color: #fff;
+            --ag-row-hover-color: #f0f7fd;
+            --ag-font-size: 12px;
+        }
+        .ag-theme-alpine .ag-header-cell.header-measure {
+            color: #006e45;
+        }
+        .ag-theme-alpine .ag-cell.cell-dim {
+            background-color: #fafafa;
+        }
+        .ag-theme-alpine .ag-cell.cell-measure {
+            text-align: right;
+            font-family: 'Roboto Mono', monospace;
+        }
+        .ag-grid-container {
+            width: 100%;
+            height: 100%;
+            min-height: 350px;
+        }
+
+        /* --- Scrollbars --- */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+        /* --- Filter Card Styles --- */
+        .filter-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 8px;
+            background: #f8f8f8;
+            font-weight: 600;
+            color: #555;
+        }
+        .filter-header .filter-title {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+            overflow: hidden;
+        }
+        .filter-header .filter-title span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .filter-header .filter-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .filter-header .filter-actions i {
+            cursor: pointer;
+            color: #999;
+            padding: 2px;
+        }
+        .filter-header .filter-actions i:hover {
+            color: #e15759;
+        }
+        
+        /* --- Filter Dropdown Styles --- */
+        .filter-dropdown-wrapper {
+            position: relative;
+        }
+        .filter-dropdown-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            cursor: pointer;
+            border-top: 1px solid #eee;
+            background: white;
+            transition: background 0.15s;
+        }
+        .filter-dropdown-trigger:hover {
+            background: #f8f8f8;
+        }
+        .filter-dropdown-trigger .trigger-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #333;
+        }
+        .filter-dropdown-trigger .trigger-text.placeholder {
+            color: #999;
+        }
+        .filter-dropdown-trigger i {
+            color: #888;
+            font-size: 10px;
+            margin-left: 4px;
+        }
+        .filter-dropdown-panel {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            max-height: 220px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-dropdown-panel.hidden {
+            display: none;
+        }
+        .filter-select-all {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            background: #fafafa;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--tb-blue);
+        }
+        .filter-select-all:hover {
+            background: #f0f7fd;
+        }
+        .filter-options-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+        .filter-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 0;
+        }
+        .filter-option:hover {
+            background: #f0f7fd;
+        }
+        .filter-option input {
+            margin: 0;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .filter-option label {
+            cursor: pointer;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* --- Color Picker Modal --- */
+        .color-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .color-modal {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            width: 320px;
+            max-height: 80vh;
+            overflow: hidden;
+        }
+        .color-modal-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #eee;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .color-modal-header .close-btn {
+            cursor: pointer;
+            color: #999;
+            font-size: 18px;
+        }
+        .color-modal-header .close-btn:hover {
+            color: #333;
+        }
+        .color-modal-body {
+            padding: 16px;
+        }
+        .color-palette-section {
+            margin-bottom: 16px;
+        }
+        .color-palette-label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .color-palette-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+        .color-swatch {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        .color-swatch:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .color-swatch.selected {
+            border-color: #333;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+        }
+        .color-presets {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .color-preset-row {
+            display: flex;
+            gap: 4px;
+            padding: 6px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .color-preset-row:hover {
+            border-color: var(--tb-blue);
+            background: #f8fbff;
+        }
+        .color-preset-row.selected {
+            border-color: var(--tb-blue);
+            background: #e8f4fc;
+        }
+        .color-preset-swatch {
+            width: 20px;
+            height: 20px;
+            border-radius: 2px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="h-12 bg-white border-b border-gray-300 flex items-center px-4 shrink-0 shadow-sm z-10">
+            <div class="flex items-center gap-2 mr-6">
+                <!-- Tableau Logoish -->
+                <div class="grid grid-cols-2 gap-0.5 w-5 h-5">
+                    <div class="bg-[#4e79a7] rounded-sm"></div>
+                    <div class="bg-[#f28e2b] rounded-sm"></div>
+                    <div class="bg-[#e15759] rounded-sm"></div>
+                    <div class="bg-[#76b7b2] rounded-sm"></div>
+                </div>
+                <span class="font-bold text-gray-700 text-lg tracking-tight">DataInsight <span class="font-normal text-gray-500 text-sm">Web Edit</span></span>
+            </div>
+            
+            <div class="flex items-center gap-1 ml-4 text-gray-600">
+                <button class="p-1.5 hover:bg-gray-100 rounded" onclick="undo()" title="撤销"><i class="fa-solid fa-rotate-left"></i></button>
+                <button class="p-1.5 hover:bg-gray-100 rounded" onclick="redo()" title="重做"><i class="fa-solid fa-rotate-right"></i></button>
+                <div class="h-4 w-px bg-gray-300 mx-2"></div>
+                <button class="p-1.5 hover:bg-gray-100 rounded" title="保存"><i class="fa-solid fa-floppy-disk"></i></button>
+                <button class="p-1.5 hover:bg-gray-100 rounded" onclick="clearAll()" title="清除工作表"><i class="fa-solid fa-eraser"></i></button>
+            </div>
+        </header>
+
+        <div class="main-workspace">
+            <!-- Left Sidebar: Data -->
+            <div class="sidebar">
+                <div class="p-3 border-b border-gray-200">
+                    <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                        <i class="fa-solid fa-database text-gray-400"></i>
+                        <span>电商销售数据</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center px-3 py-2 bg-gray-100 border-b border-gray-200">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400 text-xs mr-2"></i>
+                    <input type="text" placeholder="搜索" class="bg-transparent border-none outline-none text-xs w-full">
+                </div>
+
+                <!-- Dimensions -->
+                <div class="flex-1 flex flex-col min-h-0">
+                    <div class="data-section-header">维度 (Dimensions)</div>
+                    <div class="field-list" id="dim-list">
+                        <!-- Filled by JS -->
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="border-t border-gray-300 my-1"></div>
+
+                    <div class="data-section-header">度量 (Measures)</div>
+                    <div class="field-list" id="measure-list">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Column: Cards (Marks, Filters) -->
+            <div class="cards-column">
+                <!-- Marks Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <span>标记</span>
+                        <span class="text-xs text-gray-400">Automatic</span>
+                    </div>
+                    <div class="card-body">
+                        <select class="mark-selector" id="chartTypeSelect" onchange="changeChartType(this.value)">
+                            <option value="table">文本表 (Text Table)</option>
+                            <option value="bar">柱状图 (Bar)</option>
+                            <option value="line">折线图 (Line)</option>
+                            <option value="area">面积图 (Area)</option>
+                        </select>
+                        
+                        <div class="mark-grid">
+                            <div class="mark-btn" title="颜色" onclick="openColorPicker()">
+                                <i class="fa-solid fa-droplet text-lg"></i>
+                                <span>颜色</span>
+                            </div>
+                            <div class="mark-btn" title="大小">
+                                <i class="fa-solid fa-up-right-and-down-left-from-center text-lg"></i>
+                                <span>大小</span>
+                            </div>
+                            <div class="mark-btn" title="标签">
+                                <i class="fa-solid fa-font text-lg"></i>
+                                <span>标签</span>
+                            </div>
+                            <div class="mark-btn" title="详细信息">
+                                <i class="fa-solid fa-circle-info text-lg"></i>
+                                <span>详细信息</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters Card -->
+                <div class="card flex-1 flex flex-col min-h-0">
+                    <div class="card-header">
+                        <span>筛选器</span>
+                    </div>
+                    <div class="card-body bg-gray-50 flex-1 p-2 space-y-2 overflow-y-auto" id="filters-container">
+                        <div class="text-xs text-gray-400 text-center mt-4 italic">将维度拖放至此处进行筛选</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Area: Shelves and Viz -->
+            <div class="viz-area">
+                <!-- Shelves -->
+                <div class="shelves-container">
+                    <div class="shelf-row">
+                        <div class="shelf-label">列</div>
+                        <div id="shelf-cols" class="shelf-dropzone" data-type="both"></div>
+                    </div>
+                    <div class="shelf-row">
+                        <div class="shelf-label">行</div>
+                        <div id="shelf-rows" class="shelf-dropzone" data-type="both"></div>
+                    </div>
+                </div>
+
+                <!-- Canvas -->
+                <div class="canvas-wrapper">
+                    <div class="viz-sheet" id="viz-container">
+                        <!-- Visualization Rendered Here -->
+                        <div class="h-full flex flex-col items-center justify-center text-gray-300 select-none">
+                            <i class="fa-solid fa-chart-column text-6xl mb-4"></i>
+                            <p class="text-sm">将维度和度量拖放到行和列架</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Status -->
+                <footer class="h-6 bg-gray-100 border-t border-gray-300 flex items-center px-4 text-xs text-gray-500 justify-between shrink-0">
+                    <div class="flex gap-4">
+                        <span id="data-source-status">数据源: 待加载</span>
+                        <span id="selection-status">0 个标记</span>
+                    </div>
+                    <div class="flex gap-4">
+                        <span id="row-col-count">0 行 x 0 列</span>
+                        <span>总和: 0</span>
+                    </div>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Data Placeholder ---
+        let rawData = [];
+        
+        // --- State Management ---
+        const state = {
+            cols: [],
+            rows: [],
+            filters: {},
+            chartType: 'table',
+            history: [],
+            historyIndex: -1,
+            colorPalette: 0  // 当前选中的调色板索引
+        };
+        
+        // 预设调色板
+        const COLOR_PALETTES = [
+            { name: 'Tableau 10', colors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab'] },
+            { name: '蓝色系', colors: ['#08519c', '#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#deebf7', '#4292c6', '#2171b5', '#084594', '#4a90d9'] },
+            { name: '绿色系', colors: ['#006d2c', '#31a354', '#74c476', '#a1d99b', '#c7e9c0', '#e5f5e0', '#41ab5d', '#238b45', '#005a32', '#2ca25f'] },
+            { name: '橙红系', colors: ['#a63603', '#e6550d', '#fd8d3c', '#fdae6b', '#fdd0a2', '#fee6ce', '#f16913', '#d94801', '#8c2d04', '#ff7f0e'] },
+            { name: '紫色系', colors: ['#54278f', '#756bb1', '#9e9ac8', '#bcbddc', '#dadaeb', '#efedf5', '#807dba', '#6a51a3', '#4a1486', '#8856a7'] },
+            { name: '彩虹色', colors: ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf', '#999999', '#66c2a5'] }
+        ];
+        
+        // AG Grid 实例
+        let gridApi = null;
+        
+        // AG Grid 中文本地化
+        const AG_GRID_LOCALE_CN = {
+            filterOoo: '筛选...',
+            equals: '等于',
+            notEqual: '不等于',
+            lessThan: '小于',
+            greaterThan: '大于',
+            lessThanOrEqual: '小于等于',
+            greaterThanOrEqual: '大于等于',
+            inRange: '范围',
+            inRangeStart: '从',
+            inRangeEnd: '到',
+            contains: '包含',
+            notContains: '不包含',
+            startsWith: '开头是',
+            endsWith: '结尾是',
+            blank: '空白',
+            notBlank: '非空白',
+            andCondition: '并且',
+            orCondition: '或者',
+            applyFilter: '应用',
+            resetFilter: '重置',
+            clearFilter: '清除',
+            pinColumn: '固定列',
+            pinLeft: '固定到左侧',
+            pinRight: '固定到右侧',
+            noPin: '取消固定',
+            autosizeThiscolumn: '自动调整此列宽度',
+            autosizeAllColumns: '自动调整所有列宽度',
+            resetColumns: '重置列',
+            page: '页',
+            more: '更多',
+            to: '到',
+            of: '共',
+            next: '下一页',
+            last: '最后一页',
+            first: '第一页',
+            previous: '上一页',
+            loadingOoo: '加载中...',
+            noRowsToShow: '暂无数据',
+            enabled: '启用',
+            sortAscending: '升序',
+            sortDescending: '降序',
+            sortUnSort: '取消排序'
+        };
+
+        // --- Date Aggregation Options ---
+        const dateAggOptions = [
+            { key: 'day', label: '日', icon: 'fa-calendar-day' },
+            { key: 'month', label: '月', icon: 'fa-calendar' },
+            { key: 'quarter', label: '季度', icon: 'fa-calendar-week' },
+            { key: 'year', label: '年', icon: 'fa-calendar-days' }
+        ];
+
+        // 日期聚合函数
+        function aggregateDate(dateStr, aggType) {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const quarter = Math.ceil(month / 3);
+            
+            switch(aggType) {
+                case 'day':
+                    return dateStr;
+                case 'month':
+                    return `${year}-${String(month).padStart(2, '0')}`;
+                case 'quarter':
+                    return `${year}-Q${quarter}`;
+                case 'year':
+                    return `${year}`;
+                default:
+                    return dateStr;
+            }
+        }
+
+        // 获取字段显示名称（包含聚合信息）
+        function getFieldDisplayName(item) {
+            if (item.key === '日期' && item.dateAgg && item.dateAgg !== 'day') {
+                const aggOption = dateAggOptions.find(o => o.key === item.dateAgg);
+                return `${item.key} (${aggOption ? aggOption.label : item.dateAgg})`;
+            }
+            return item.key;
+        }
+
+        // --- Field Definitions (匹配原始 ecommerce_data.js 的字段) ---
+        const fields = {
+            dims: [
+                { key: '日期', type: 'date', icon: 'fa-calendar-days' },
+                { key: '客户', type: 'string', icon: 'fa-building' },
+                { key: '平台', type: 'string', icon: 'fa-globe' },
+                { key: '店铺名称', type: 'string', icon: 'fa-store' }
+            ],
+            measures: [
+                { key: 'GMV', type: 'number', icon: 'fa-coins' },
+                { key: '订单数', type: 'number', icon: 'fa-receipt' },
+                { key: '销售件数', type: 'number', icon: 'fa-boxes-stacked' },
+                { key: '退款金额', type: 'number', icon: 'fa-rotate-left' },
+                { key: '退款件数', type: 'number', icon: 'fa-box-archive' },
+                { key: '支付用户数', type: 'number', icon: 'fa-users' },
+                { key: '访客数', type: 'number', icon: 'fa-user-group' },
+                { key: '浏览量', type: 'number', icon: 'fa-eye' },
+                { key: '加购次数', type: 'number', icon: 'fa-cart-plus' },
+                { key: '收藏次数', type: 'number', icon: 'fa-heart' },
+                { key: '商品成本', type: 'number', icon: 'fa-money-bill-wave' },
+                { key: '广告费', type: 'number', icon: 'fa-bullhorn' },
+                { key: '平台费用', type: 'number', icon: 'fa-building-columns' },
+                { key: '运费', type: 'number', icon: 'fa-truck' },
+                { key: '其他费用', type: 'number', icon: 'fa-ellipsis' }
+            ]
+        };
+
+        // --- Initialization ---
+        function init() {
+            if (typeof ECOMMERCE_DATA !== 'undefined') {
+                rawData = ECOMMERCE_DATA;
+                console.log(`数据已加载: ${rawData.length} 条记录`);
+                document.getElementById('data-source-status').innerText = `数据源: 活跃 (${rawData.length} 行)`;
+            } else {
+                console.warn('未找到 ECOMMERCE_DATA，请确保引入了数据文件');
+                document.getElementById('data-source-status').innerText = '数据源: 未连接';
+            }
+
+            renderSidebar();
+            setupDragAndDrop();
+        }
+
+        // --- Sidebar Rendering ---
+        function renderSidebar() {
+            const dimList = document.getElementById('dim-list');
+            const measureList = document.getElementById('measure-list');
+
+            dimList.innerHTML = '';
+            measureList.innerHTML = '';
+
+            fields.dims.forEach(f => {
+                dimList.appendChild(createFieldEl(f, 'dim'));
+            });
+
+            fields.measures.forEach(f => {
+                measureList.appendChild(createFieldEl(f, 'measure'));
+            });
+        }
+
+        function createFieldEl(field, type) {
+            const el = document.createElement('div');
+            el.className = 'field-item';
+            el.draggable = true;
+            el.dataset.key = field.key;
+            el.dataset.type = type;
+            el.dataset.icon = field.icon;
+            
+            const iconClass = type === 'dim' ? 'dim-icon' : 'measure-icon';
+            
+            el.innerHTML = `
+                <span class="field-icon ${iconClass}"><i class="fa-solid ${field.icon}"></i></span>
+                <span class="text-gray-700">${field.key}</span>
+            `;
+            
+            el.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('application/json', JSON.stringify({
+                    key: field.key,
+                    type: type,
+                    icon: field.icon
+                }));
+                el.classList.add('opacity-50');
+            });
+            el.addEventListener('dragend', () => el.classList.remove('opacity-50'));
+            
+            return el;
+        }
+
+        // --- Drag and Drop Logic (Enhanced with Sortable.js) ---
+        function setupDragAndDrop() {
+            const dropzones = document.querySelectorAll('.shelf-dropzone');
+
+            dropzones.forEach(zone => {
+                zone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    zone.classList.add('drag-over');
+                });
+                
+                zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+                
+                zone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    zone.classList.remove('drag-over');
+                    const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                    
+                    if (data.key === '日期') {
+                        data.dateAgg = 'day';
+                    }
+                    
+                    const zoneId = zone.id;
+                    if(zoneId === 'shelf-cols') state.cols.push(data);
+                    if(zoneId === 'shelf-rows') state.rows.push(data);
+                    
+                    // 如果是维度，自动添加到筛选器（同步行列维度）
+                    if (data.type === 'dim') {
+                        syncFiltersFromShelves();
+                    }
+                    
+                    updateUI();
+                });
+
+                if (window.Sortable) {
+                    new Sortable(zone, {
+                        animation: 150,
+                        ghostClass: 'opacity-50',
+                        onEnd: function(evt) {
+                            const zoneId = zone.id;
+                            const items = zoneId === 'shelf-cols' ? state.cols : state.rows;
+                            const [movedItem] = items.splice(evt.oldIndex, 1);
+                            items.splice(evt.newIndex, 0, movedItem);
+                            updateUI();
+                        }
+                    });
+                }
+            });
+
+            // Filter Drop Zone
+            const filterCard = document.querySelector('#filters-container').parentElement;
+            
+            filterCard.addEventListener('dragover', e => { e.preventDefault(); filterCard.style.borderColor = 'var(--tb-blue)'; });
+            filterCard.addEventListener('dragleave', e => { filterCard.style.borderColor = '#dcdcdc'; });
+            filterCard.addEventListener('drop', e => {
+                e.preventDefault();
+                filterCard.style.borderColor = '#dcdcdc';
+                const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                if(data.type === 'dim') {
+                    if(!state.filters[data.key]) {
+                        addAutoFilter(data.key);
+                    }
+                    updateUI();
+                } else {
+                    alert('目前只支持维度筛选');
+                }
+            });
+        }
+
+        // --- UI Updates ---
+        function updateUI() {
+            renderShelf('shelf-cols', state.cols);
+            renderShelf('shelf-rows', state.rows);
+            renderFilters();
+            renderViz();
+            updateStats();
+        }
+
+        function renderShelf(id, items) {
+            const container = document.getElementById(id);
+            container.innerHTML = '';
+            
+            items.forEach((item, index) => {
+                const pill = document.createElement('div');
+                pill.className = `pill ${item.type}`;
+                const displayName = getFieldDisplayName(item);
+                
+                const caretClickable = item.key === '日期' ? 'cursor-pointer' : '';
+                const caretOnClick = item.key === '日期' ? `onclick="showDateAggMenu(event, '${id}', ${index})"` : '';
+                
+                pill.innerHTML = `
+                    <span class="pill-text">${displayName}</span>
+                    <i class="fa-solid fa-caret-down pill-caret ${caretClickable}" ${caretOnClick}></i>
+                    <i class="fa-solid fa-xmark pill-remove" onclick="removeField('${id}', ${index})"></i>
+                `;
+                container.appendChild(pill);
+            });
+        }
+
+        // 显示日期聚合菜单
+        window.showDateAggMenu = (event, shelfId, index) => {
+            event.stopPropagation();
+            
+            const existingMenu = document.querySelector('.date-agg-menu');
+            if (existingMenu) existingMenu.remove();
+            
+            const items = shelfId === 'shelf-cols' ? state.cols : state.rows;
+            const item = items[index];
+            const currentAgg = item.dateAgg || 'day';
+            
+            const menu = document.createElement('div');
+            menu.className = 'date-agg-menu';
+            
+            dateAggOptions.forEach(opt => {
+                const menuItem = document.createElement('div');
+                menuItem.className = `date-agg-menu-item ${opt.key === currentAgg ? 'active' : ''}`;
+                menuItem.innerHTML = `<i class="fa-solid ${opt.icon}"></i><span>${opt.label}</span>`;
+                menuItem.onclick = () => {
+                    setDateAgg(shelfId, index, opt.key);
+                    menu.remove();
+                };
+                menu.appendChild(menuItem);
+            });
+            
+            const rect = event.target.getBoundingClientRect();
+            menu.style.left = `${rect.left}px`;
+            menu.style.top = `${rect.bottom + 4}px`;
+            
+            document.body.appendChild(menu);
+            
+            const closeMenu = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeMenu), 0);
+        };
+
+        // 设置日期聚合方式
+        window.setDateAgg = (shelfId, index, aggType) => {
+            const items = shelfId === 'shelf-cols' ? state.cols : state.rows;
+            items[index].dateAgg = aggType;
+            
+            // 更新日期筛选器的值（根据新的聚合级别）
+            if (state.filters['日期']) {
+                updateDateFilterValues(aggType);
+            }
+            
+            updateUI();
+        };
+
+        // ========== 筛选器核心逻辑 ==========
+        
+        // 同步行列架上的维度到筛选器
+        function syncFiltersFromShelves() {
+            const allDims = [...state.cols, ...state.rows].filter(f => f.type === 'dim');
+            const dimKeys = new Set(allDims.map(d => d.key));
+            
+            // 添加新的维度筛选器
+            allDims.forEach(dim => {
+                if (!state.filters[dim.key]) {
+                    addAutoFilter(dim.key, dim.dateAgg);
+                }
+            });
+            
+            // 移除不在行列架上的筛选器
+            Object.keys(state.filters).forEach(key => {
+                if (!dimKeys.has(key)) {
+                    delete state.filters[key];
+                }
+            });
+        }
+
+        // 自动添加筛选器
+        function addAutoFilter(key, dateAgg) {
+            if (key === '日期') {
+                // 日期维度：根据聚合级别获取唯一值
+                const aggType = dateAgg || getCurrentDateAgg();
+                const uniqueValues = getUniqueDateValues(aggType);
+                state.filters[key] = {
+                    values: uniqueValues,
+                    selected: new Set(uniqueValues),
+                    dateAgg: aggType
+                };
+            } else {
+                // 其他维度：获取级联筛选后的唯一值
+                const uniqueValues = getFilteredValuesForDimension(key);
+                state.filters[key] = {
+                    values: uniqueValues,
+                    selected: new Set(uniqueValues)
+                };
+            }
+        }
+
+        // 获取当前日期聚合级别
+        function getCurrentDateAgg() {
+            const dateField = [...state.cols, ...state.rows].find(f => f.key === '日期');
+            return dateField ? (dateField.dateAgg || 'day') : 'day';
+        }
+
+        // 获取日期维度的唯一值（根据聚合级别）
+        function getUniqueDateValues(aggType) {
+            const values = rawData.map(row => aggregateDate(row['日期'], aggType));
+            return [...new Set(values)].filter(v => v != null).sort();
+        }
+
+        // 更新日期筛选器的值（当聚合级别变化时）
+        function updateDateFilterValues(newAggType) {
+            const filter = state.filters['日期'];
+            if (!filter) return;
+            
+            const newValues = getUniqueDateValues(newAggType);
+            const oldSelected = filter.selected;
+            const wasAllSelected = oldSelected.size === filter.values.length;
+            
+            filter.values = newValues;
+            filter.dateAgg = newAggType;
+            
+            // 如果之前是全选，保持全选
+            if (wasAllSelected) {
+                filter.selected = new Set(newValues);
+            } else {
+                // 保留仍然有效的选中值
+                const validSelected = new Set();
+                oldSelected.forEach(v => {
+                    if (newValues.includes(v)) {
+                        validSelected.add(v);
+                    }
+                });
+                // 如果没有有效选中值，默认全选
+                if (validSelected.size === 0 && newValues.length > 0) {
+                    filter.selected = new Set(newValues);
+                } else {
+                    filter.selected = validSelected;
+                }
+            }
+        }
+
+        // 获取维度的级联筛选值（核心级联逻辑）
+        function getFilteredValuesForDimension(dimKey) {
+            // 先应用其他维度的筛选条件
+            let filteredData = rawData;
+            
+            // 定义维度间的依赖关系
+            // 店铺名称 依赖于 客户 和 平台
+            const dependencies = {
+                '店铺名称': ['客户', '平台'],
+                '客户': [],
+                '平台': [],
+                '日期': []
+            };
+            
+            const deps = dependencies[dimKey] || [];
+            
+            // 应用依赖维度的筛选（非全选时才筛选）
+            deps.forEach(depKey => {
+                const depFilter = state.filters[depKey];
+                if (depFilter && depFilter.selected.size > 0 && depFilter.selected.size < depFilter.values.length) {
+                    filteredData = filteredData.filter(row => depFilter.selected.has(row[depKey]));
+                }
+            });
+            
+            // 获取筛选后的唯一值
+            const uniqueValues = [...new Set(filteredData.map(row => row[dimKey]))].filter(v => v != null).sort();
+            return uniqueValues;
+        }
+
+        // 更新依赖维度的筛选器选项（级联更新）
+        function updateDependentFilters(changedKey) {
+            // 定义哪些维度依赖于哪些维度
+            const dependents = {
+                '客户': ['店铺名称'],
+                '平台': ['店铺名称']
+            };
+            
+            const affectedDims = dependents[changedKey] || [];
+            
+            affectedDims.forEach(dimKey => {
+                if (state.filters[dimKey]) {
+                    const newValues = getFilteredValuesForDimension(dimKey);
+                    const filter = state.filters[dimKey];
+                    const wasAllSelected = filter.selected.size === filter.values.length;
+                    
+                    filter.values = newValues;
+                    
+                    // 更新选中值
+                    if (wasAllSelected) {
+                        // 之前是全选，保持全选
+                        filter.selected = new Set(newValues);
+                    } else {
+                        // 只保留仍然有效的值
+                        const validSelected = new Set();
+                        filter.selected.forEach(v => {
+                            if (newValues.includes(v)) {
+                                validSelected.add(v);
+                            }
+                        });
+                        // 如果没有有效值，全选
+                        if (validSelected.size === 0 && newValues.length > 0) {
+                            filter.selected = new Set(newValues);
+                        } else {
+                            filter.selected = validSelected;
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderFilters() {
+            const container = document.getElementById('filters-container');
+            const keys = Object.keys(state.filters);
+            
+            if (keys.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400 text-center mt-4 italic">将维度拖放至此处进行筛选</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            // 按照固定顺序排列筛选器：日期、客户、平台、店铺名称
+            const filterOrder = ['日期', '客户', '平台', '店铺名称'];
+            const sortedKeys = keys.sort((a, b) => {
+                const idxA = filterOrder.indexOf(a);
+                const idxB = filterOrder.indexOf(b);
+                if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+                if (idxA === -1) return 1;
+                if (idxB === -1) return -1;
+                return idxA - idxB;
+            });
+            
+            sortedKeys.forEach(key => {
+                const filter = state.filters[key];
+                const div = document.createElement('div');
+                div.className = 'filter-item';
+                
+                // 获取筛选器标题（日期显示聚合级别）
+                let filterTitle = key;
+                if (key === '日期' && filter.dateAgg) {
+                    const aggOption = dateAggOptions.find(o => o.key === filter.dateAgg);
+                    if (aggOption && filter.dateAgg !== 'day') {
+                        filterTitle = `${key} (${aggOption.label})`;
+                    }
+                }
+                
+                // 计算显示文本
+                const displayText = getFilterDisplayText(filter);
+                const isAllSelected = filter.selected.size === filter.values.length;
+                const filterId = `filter-dropdown-${key.replace(/\s/g, '-')}`;
+                
+                div.innerHTML = `
+                    <div class="filter-header">
+                        <span class="filter-title">
+                            <i class="fa-solid fa-filter text-xs text-blue-400"></i>
+                            <span>${filterTitle}</span>
+                        </span>
+                        <span class="filter-actions">
+                            <i class="fa-solid fa-xmark" onclick="removeFilter('${key}')" title="移除筛选器"></i>
+                        </span>
+                    </div>
+                    <div class="filter-dropdown-wrapper">
+                        <div class="filter-dropdown-trigger" onclick="toggleFilterDropdown('${key}')">
+                            <span class="trigger-text ${isAllSelected ? '' : ''}">${displayText}</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                        <div class="filter-dropdown-panel hidden" id="${filterId}">
+                            <div class="filter-select-all" onclick="toggleSelectAll('${key}')">
+                                <input type="checkbox" ${isAllSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleSelectAll('${key}')">
+                                <span>全选</span>
+                            </div>
+                            <div class="filter-options-list">
+                                ${renderFilterOptions(key, filter)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        // 获取筛选器显示文本
+        function getFilterDisplayText(filter) {
+            if (filter.selected.size === 0) {
+                return '请选择...';
+            }
+            if (filter.selected.size === filter.values.length) {
+                return '全部';
+            }
+            if (filter.selected.size === 1) {
+                return [...filter.selected][0];
+            }
+            return `已选 ${filter.selected.size} 项`;
+        }
+        
+        // 当前打开的下拉框key
+        let currentOpenDropdown = null;
+        
+        // 切换下拉框显示/隐藏
+        window.toggleFilterDropdown = (key) => {
+            const filterId = `filter-dropdown-${key.replace(/\s/g, '-')}`;
+            const panel = document.getElementById(filterId);
+            
+            // 如果点击的是当前已打开的下拉框，则关闭它
+            if (currentOpenDropdown === key) {
+                panel.classList.add('hidden');
+                currentOpenDropdown = null;
+                return;
+            }
+            
+            // 先关闭所有其他下拉框
+            document.querySelectorAll('.filter-dropdown-panel').forEach(p => {
+                p.classList.add('hidden');
+            });
+            
+            // 打开当前下拉框
+            panel.classList.remove('hidden');
+            currentOpenDropdown = key;
+        };
+        
+        // 全局点击事件：点击下拉框外部时关闭
+        document.addEventListener('click', (e) => {
+            if (currentOpenDropdown === null) return;
+            
+            const wrapper = e.target.closest('.filter-dropdown-wrapper');
+            if (!wrapper) {
+                // 点击在下拉框外部，关闭所有下拉框
+                document.querySelectorAll('.filter-dropdown-panel').forEach(p => {
+                    p.classList.add('hidden');
+                });
+                currentOpenDropdown = null;
+            }
+        });
+        
+        // 全选/取消全选
+        window.toggleSelectAll = (key) => {
+            const filter = state.filters[key];
+            const isAllSelected = filter.selected.size === filter.values.length;
+            
+            if (isAllSelected) {
+                // 取消全选（至少保留一个）
+                filter.selected = new Set([filter.values[0]]);
+            } else {
+                // 全选
+                filter.selected = new Set(filter.values);
+            }
+            
+            updateDependentFilters(key);
+            updateFilterUI(key);
+            renderViz();
+        };
+        
+        function renderFilterOptions(key, filter) {
+            if (filter.values.length === 0) {
+                return '<div class="text-center text-gray-400 py-2">无可用选项</div>';
+            }
+            
+            return filter.values.map((val, idx) => {
+                const checked = filter.selected.has(val) ? 'checked' : '';
+                const escapedVal = String(val).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                return `
+                    <div class="filter-option" onclick="event.stopPropagation();">
+                        <input type="checkbox" id="filter-${key}-${idx}" ${checked} 
+                            onchange="toggleFilterValue('${key}', '${escapedVal}', this.checked)">
+                        <label for="filter-${key}-${idx}" onclick="event.preventDefault(); toggleFilterValue('${key}', '${escapedVal}', !document.getElementById('filter-${key}-${idx}').checked)">${val}</label>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 只更新单个筛选器的UI（不关闭下拉框）
+        function updateFilterUI(key) {
+            const filter = state.filters[key];
+            const filterId = `filter-dropdown-${key.replace(/\s/g, '-')}`;
+            const panel = document.getElementById(filterId);
+            
+            if (panel) {
+                // 更新触发器文本
+                const trigger = panel.previousElementSibling;
+                if (trigger) {
+                    const textSpan = trigger.querySelector('.trigger-text');
+                    if (textSpan) {
+                        textSpan.textContent = getFilterDisplayText(filter);
+                    }
+                }
+                
+                // 更新全选复选框
+                const selectAllCheckbox = panel.querySelector('.filter-select-all input');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = filter.selected.size === filter.values.length;
+                }
+                
+                // 更新选项复选框
+                filter.values.forEach((val, idx) => {
+                    const checkbox = document.getElementById(`filter-${key}-${idx}`);
+                    if (checkbox) {
+                        checkbox.checked = filter.selected.has(val);
+                    }
+                });
+            }
+            
+            // 更新依赖筛选器（这些需要完全重新渲染）
+            const dependents = { '客户': ['店铺名称'], '平台': ['店铺名称'] };
+            const affectedDims = dependents[key] || [];
+            affectedDims.forEach(dimKey => {
+                if (state.filters[dimKey]) {
+                    const depFilter = state.filters[dimKey];
+                    const depFilterId = `filter-dropdown-${dimKey.replace(/\s/g, '-')}`;
+                    const depPanel = document.getElementById(depFilterId);
+                    if (depPanel) {
+                        // 更新触发器文本
+                        const trigger = depPanel.previousElementSibling;
+                        if (trigger) {
+                            const textSpan = trigger.querySelector('.trigger-text');
+                            if (textSpan) {
+                                textSpan.textContent = getFilterDisplayText(depFilter);
+                            }
+                        }
+                        // 更新选项列表
+                        const optionsList = depPanel.querySelector('.filter-options-list');
+                        if (optionsList) {
+                            optionsList.innerHTML = renderFilterOptions(dimKey, depFilter);
+                        }
+                        // 更新全选复选框
+                        const selectAllCheckbox = depPanel.querySelector('.filter-select-all input');
+                        if (selectAllCheckbox) {
+                            selectAllCheckbox.checked = depFilter.selected.size === depFilter.values.length;
+                        }
+                    }
+                }
+            });
+        }
+        
+        window.toggleFilterValue = (key, value, checked) => {
+            const filter = state.filters[key];
+            
+            if (checked) {
+                filter.selected.add(value);
+            } else {
+                // 至少保留一个选中项
+                if (filter.selected.size > 1) {
+                    filter.selected.delete(value);
+                }
+            }
+            
+            // 更新依赖的筛选器（级联更新）
+            updateDependentFilters(key);
+            
+            updateFilterUI(key);
+            renderViz();
+        };
+
+        window.removeField = (shelfId, index) => {
+            if(shelfId === 'shelf-cols') state.cols.splice(index, 1);
+            if(shelfId === 'shelf-rows') state.rows.splice(index, 1);
+            
+            // 同步筛选器
+            syncFiltersFromShelves();
+            
+            updateUI();
+        };
+
+        window.removeFilter = (key) => {
+            delete state.filters[key];
+            updateUI();
+        };
+        
+        // --- 颜色选择器 ---
+        window.openColorPicker = () => {
+            const overlay = document.createElement('div');
+            overlay.className = 'color-modal-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            
+            const modal = document.createElement('div');
+            modal.className = 'color-modal';
+            modal.innerHTML = `
+                <div class="color-modal-header">
+                    <span>选择配色方案</span>
+                    <span class="close-btn" onclick="this.closest('.color-modal-overlay').remove()">&times;</span>
+                </div>
+                <div class="color-modal-body">
+                    <div class="color-palette-section">
+                        <div class="color-palette-label">预设调色板</div>
+                        <div class="color-presets">
+                            ${COLOR_PALETTES.map((palette, idx) => `
+                                <div class="color-preset-row ${state.colorPalette === idx ? 'selected' : ''}" 
+                                     onclick="selectColorPalette(${idx}); this.closest('.color-modal-overlay').remove();">
+                                    ${palette.colors.slice(0, 8).map(c => `<div class="color-preset-swatch" style="background:${c}"></div>`).join('')}
+                                    <span style="margin-left:8px;font-size:11px;color:#666;">${palette.name}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+        };
+        
+        window.selectColorPalette = (idx) => {
+            state.colorPalette = idx;
+            renderViz();
+        };
+        
+        function getCurrentColors() {
+            return COLOR_PALETTES[state.colorPalette].colors;
+        }
+
+        window.clearAll = () => {
+            state.cols = [];
+            state.rows = [];
+            state.filters = {};
+            updateUI();
+        };
+        
+        window.changeChartType = (type) => {
+            state.chartType = type;
+            renderViz();
+        };
+
+        // --- Viz Engine ---
+        function renderViz() {
+            const container = document.getElementById('viz-container');
+            
+            if (!rawData || rawData.length === 0) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-gray-300 select-none">
+                        <i class="fa-solid fa-triangle-exclamation text-4xl mb-4 text-yellow-500"></i>
+                        <p class="text-sm">无数据源或数据加载失败</p>
+                    </div>`;
+                return;
+            }
+
+            if (state.cols.length === 0 && state.rows.length === 0) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-gray-300 select-none">
+                        <i class="fa-solid fa-chart-column text-6xl mb-4"></i>
+                        <p class="text-sm">将维度和度量拖放到行和列架</p>
+                    </div>`;
+                return;
+            }
+
+            const rowDims = state.rows.filter(f => f.type === 'dim');
+            const colDims = state.cols.filter(f => f.type === 'dim');
+            const allDims = [...colDims, ...rowDims];
+            const metrics = [...state.cols.filter(f => f.type === 'measure'), ...state.rows.filter(f => f.type === 'measure')];
+
+            const aggregatedData = aggregateWithArquero(rawData, allDims, metrics);
+
+            if (state.chartType === 'table') {
+                renderTableViz(container, aggregatedData, allDims, metrics);
+            } else if (state.chartType === 'bar') {
+                renderBarChart(container, aggregatedData, allDims, metrics);
+            } else if (state.chartType === 'line') {
+                renderLineChart(container, aggregatedData, allDims, metrics);
+            } else if (state.chartType === 'area') {
+                renderAreaChart(container, aggregatedData, allDims, metrics);
+            } else {
+                container.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400">图表类型开发中...</div>`;
+            }
+        }
+
+        // 使用 Arquero 进行数据聚合
+        function aggregateWithArquero(data, dims, metrics) {
+            if (!window.aq) {
+                console.error('Arquero 未加载');
+                return { keys: [], groups: {} };
+            }
+
+            // 先应用筛选器（包括日期筛选）
+            let filteredData = data.filter(row => {
+                for (const [key, filter] of Object.entries(state.filters)) {
+                    // 只有非全选时才筛选
+                    if (filter.selected.size > 0 && filter.selected.size < filter.values.length) {
+                        if (key === '日期' && filter.dateAgg) {
+                            // 日期筛选：先聚合再比较
+                            const aggValue = aggregateDate(row[key], filter.dateAgg);
+                            if (!filter.selected.has(aggValue)) {
+                                return false;
+                            }
+                        } else {
+                            if (!filter.selected.has(row[key])) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            });
+
+            let table = aq.from(filteredData);
+
+            dims.forEach(d => {
+                if (d.key === '日期' && d.dateAgg) {
+                    const aggKey = `${d.key}_agg`;
+                    table = table.derive({
+                        [aggKey]: aq.escape(row => aggregateDate(row[d.key], d.dateAgg))
+                    });
+                }
+            });
+
+            const groupFields = dims.map(d => {
+                if (d.key === '日期' && d.dateAgg) {
+                    return `${d.key}_agg`;
+                }
+                return d.key;
+            });
+
+            const rollupSpec = {};
+            metrics.forEach(m => {
+                rollupSpec[m.key] = aq.op.sum(m.key);
+            });
+
+            if (groupFields.length > 0) {
+                table = table.groupby(groupFields).rollup(rollupSpec);
+            } else {
+                table = table.rollup(rollupSpec);
+            }
+
+            const result = table.objects();
+
+            const groups = {};
+            result.forEach(row => {
+                const rowKey = dims.map(d => {
+                    const fieldName = (d.key === '日期' && d.dateAgg) ? `${d.key}_agg` : d.key;
+                    return row[fieldName];
+                }).join(' / ') || '总计';
+
+                groups[rowKey] = {
+                    meta: {},
+                    values: {},
+                    count: 1
+                };
+
+                dims.forEach(d => {
+                    const fieldName = (d.key === '日期' && d.dateAgg) ? `${d.key}_agg` : d.key;
+                    groups[rowKey].meta[d.key] = row[fieldName];
+                });
+
+                metrics.forEach(m => {
+                    groups[rowKey].values[m.key] = row[m.key] || 0;
+                });
+            });
+
+            const sortedKeys = Object.keys(groups).sort();
+            return { keys: sortedKeys, groups };
+        }
+
+        function renderTableViz(container, aggregatedData, allDims, metrics) {
+            if(metrics.length === 0) {
+                container.innerHTML = '<div class="p-4 text-gray-500">请添加度量到视图中</div>';
+                return;
+            }
+            
+            const { keys, groups } = aggregatedData;
+            
+            const colDims = state.cols.filter(f => f.type === 'dim');
+            const rowDims = state.rows.filter(f => f.type === 'dim');
+            
+            if (colDims.length === 0) {
+                renderAgGridSimple(container, keys, groups, allDims, metrics);
+                return;
+            }
+            
+            renderAgGridCross(container, groups, colDims, rowDims, metrics);
+        }
+        
+        function destroyGrid() {
+            if (gridApi) { gridApi.destroy(); gridApi = null; }
+            if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
+        }
+        
+        const measureFormatter = params => params.value == null ? '' : Math.round(params.value).toLocaleString();
+        const createDimCol = (d, pinned) => ({ headerName: getFieldDisplayName(d), field: d.key, cellClass: 'cell-dim', headerClass: 'header-dim', sortable: true, filter: true, resizable: true, width: 80, flex: 0, pinned });
+        const createMeasureCol = (field, header) => ({ headerName: header, field, cellClass: 'cell-measure', headerClass: 'header-measure', sortable: true, filter: 'agNumberColumnFilter', resizable: true, width: 100, flex: 0, valueFormatter: measureFormatter });
+        
+        function createAgGrid(container, columnDefs, rowData) {
+            container.innerHTML = '<div id="ag-grid-container" class="ag-theme-alpine ag-grid-container"></div>';
+            gridApi = agGrid.createGrid(document.getElementById('ag-grid-container'), {
+                columnDefs, rowData,
+                defaultColDef: { minWidth: 60 },
+                animateRows: true, rowSelection: 'multiple', suppressCellFocus: false, enableCellTextSelection: true,
+                localeText: AG_GRID_LOCALE_CN
+            });
+        }
+        
+        function renderAgGridSimple(container, keys, groups, dims, metrics) {
+            destroyGrid();
+            const columnDefs = [...dims.map(d => createDimCol(d)), ...metrics.map(m => createMeasureCol(m.key, m.key))];
+            const rowData = keys.map(k => {
+                const row = {};
+                dims.forEach(d => row[d.key] = groups[k].meta[d.key]);
+                metrics.forEach(m => row[m.key] = groups[k].values[m.key]);
+                return row;
+            });
+            createAgGrid(container, columnDefs, rowData);
+        }
+        
+        function renderAgGridCross(container, groups, colDims, rowDims, metrics) {
+            destroyGrid();
+            
+            const colValues = new Set(), rowGroups = {};
+            Object.keys(groups).forEach(key => {
+                const meta = groups[key].meta;
+                const colKey = colDims.map(d => meta[d.key]).join(' / ');
+                const rowKey = rowDims.length > 0 ? rowDims.map(d => meta[d.key]).join(' / ') : '总计';
+                colValues.add(colKey);
+                if (!rowGroups[rowKey]) {
+                    rowGroups[rowKey] = { meta: {}, cols: {} };
+                    rowDims.forEach(d => rowGroups[rowKey].meta[d.key] = meta[d.key]);
+                }
+                rowGroups[rowKey].cols[colKey] = groups[key].values;
+            });
+            
+            const sortedColValues = Array.from(colValues).sort();
+            const sortedRowKeys = Object.keys(rowGroups).sort();
+            
+            const columnDefs = rowDims.map(d => createDimCol(d, 'left'));
+            sortedColValues.forEach(cv => {
+                if (metrics.length === 1) {
+                    columnDefs.push(createMeasureCol(`${cv}_${metrics[0].key}`, cv));
+                } else {
+                    columnDefs.push({ headerName: cv, headerClass: 'header-measure', children: metrics.map(m => createMeasureCol(`${cv}_${m.key}`, m.key)) });
+                }
+            });
+            
+            const rowData = sortedRowKeys.map(rowKey => {
+                const row = {};
+                rowDims.forEach(d => row[d.key] = rowGroups[rowKey].meta[d.key]);
+                sortedColValues.forEach(colKey => {
+                    const colData = rowGroups[rowKey].cols[colKey] || {};
+                    metrics.forEach(m => row[`${colKey}_${m.key}`] = colData[m.key] || 0);
+                });
+                return row;
+            });
+            createAgGrid(container, columnDefs, rowData);
+        }
+
+        let chartInstance = null;
+
+        function renderEChart(container, aggregatedData, metrics, chartType) {
+            if (metrics.length === 0) return;
+            const { keys, groups } = aggregatedData;
+            
+            if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
+            
+            container.innerHTML = '<div id="echarts-container" style="width: 100%; height: 100%; min-height: 400px;"></div>';
+            const chartDiv = document.getElementById('echarts-container');
+            if (!window.echarts) { container.innerHTML = '<div class="p-4 text-gray-500">ECharts 未加载</div>'; return; }
+            
+            chartInstance = echarts.init(chartDiv);
+            
+            const isBar = chartType === 'bar';
+            const seriesData = metrics.map(m => ({
+                name: m.key,
+                type: isBar ? 'bar' : 'line',
+                data: keys.map(k => groups[k].values[m.key]),
+                smooth: !isBar,
+                areaStyle: chartType === 'area' ? {} : undefined,
+                emphasis: { focus: 'series' }
+            }));
+            
+            const tooltipFormatter = params => {
+                let result = params[0].axisValue + '<br/>';
+                params.forEach(item => { result += `${item.marker} ${item.seriesName}: ${Math.round(item.value).toLocaleString()}<br/>`; });
+                return result;
+            };
+            const valueFormatter = value => value >= 1000 ? (value / 1000).toFixed(0) + 'K' : value;
+            
+            const option = {
+                tooltip: { trigger: 'axis', axisPointer: { type: isBar ? 'shadow' : (chartType === 'area' ? 'cross' : 'line') }, formatter: tooltipFormatter },
+                legend: { data: metrics.map(m => m.key), top: 10 },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: 50, containLabel: true },
+                xAxis: { type: 'category', data: keys, boundaryGap: isBar, axisLabel: { interval: 0, rotate: keys.length > 8 ? 45 : 0, formatter: v => v.length > 12 ? v.substring(0, 12) + '...' : v } },
+                yAxis: { type: 'value', axisLabel: { formatter: valueFormatter } },
+                series: seriesData,
+                color: getCurrentColors()
+            };
+            
+            chartInstance.setOption(option);
+        }
+
+        function renderBarChart(container, data, dims, metrics) { renderEChart(container, data, metrics, 'bar'); }
+        function renderLineChart(container, data, dims, metrics) { renderEChart(container, data, metrics, 'line'); }
+        function renderAreaChart(container, data, dims, metrics) { renderEChart(container, data, metrics, 'area'); }
+        
+        window.addEventListener('resize', () => { if (chartInstance) chartInstance.resize(); });
+
+        function updateStats() {
+            document.getElementById('row-col-count').innerText = `${state.rows.length} 行 x ${state.cols.length} 列`;
+        }
+
+        // --- Run ---
+        init();
+        
+        // 默认加载：日期(月)放列，客户、平台、GMV放行
+        setTimeout(() => {
+            state.cols.push({ key: '日期', type: 'dim', icon: 'fa-calendar-days', dateAgg: 'month' });
+            state.rows.push({ key: '客户', type: 'dim', icon: 'fa-building' });
+            state.rows.push({ key: '平台', type: 'dim', icon: 'fa-globe' });
+            state.rows.push({ key: 'GMV', type: 'measure', icon: 'fa-coins' });
+            
+            // 同步筛选器
+            syncFiltersFromShelves();
+            
+            updateUI();
+        }, 100);
+
+    </script>
+</body>
+</html>
